@@ -1,0 +1,7 @@
+spells:
+  '0 0 0 0 0 0 0':
+    title: Give
+    page: distance 0\nobject 295
+  '88 88 88':
+    title: TransformBiome
+    page: distance 30\nradius 10\nbiome HELL

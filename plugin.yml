@@ -1,0 +1,13 @@
+name: ScrollBooks
+main: me.nathanaelps.plugins.scrollbooks.ScrollBooks
+version: a.01
+commands:
+  scrollbooksreload:
+    description: Reload ScrollBooks
+    usage: /telepadreload
+    permission: telepad.admin
+permissions:
+    scrollbooks.*:
+        default: op
+        children:
+            scrollbooks.create: true
