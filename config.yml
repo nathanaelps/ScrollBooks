@@ -1,7 +1,41 @@
+# Fireball Dirtball Give Oubliette Teleport TransformBiome SeaLevel Build
 spells:
-  '0 0 0 0 0 0 0':
+  1:
+    title: Build
+    page:
+      schematic: tree
+      speed: 2
+  0 0 0 0 0 0 0:
     title: Give
-    page: distance 0\nobject 295
-  '88 88 88':
+    page:
+      type: 295
+      quantity: 1
+      dieChance: 10
+  87 88 89:
     title: TransformBiome
-    page: distance 30\nradius 10\nbiome HELL
+    page:
+      distance: 30
+      radius: 4
+      biome: HELL
+      dieChance: 40
+  9 9 9:
+    title: SeaLevel
+    page:
+      distance: 10
+      radius: 3
+      volume: 200
+  24 12 81:
+    title: TransformBiome
+    page:
+      distance: 30
+      radius: 4
+      biome: DESERT
+      dieChance: 40
+  129 2:
+    title: TransformBiome
+    page:
+      distance: 30
+      radius: 4
+      biome: EXTREME_HILLS
+      dieChance: 40
+      
