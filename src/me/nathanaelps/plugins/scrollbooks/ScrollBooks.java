@@ -1,6 +1,5 @@
 package me.nathanaelps.plugins.scrollbooks;
 
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,10 +86,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
     	String author = "ScrollBook";
     	List<String> pages = new ArrayList<String>();
        	String title = "";
-       	//String newline = System.getProperty("line.separator");
        	
 		for(String spell : spells) {
-//			log(spell);
 			if(pile.equals(" "+spell)) {
 				title = this.getConfig().getString("spells."+spell+".title");
 				
@@ -99,10 +96,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				for(String argument: arguments){
 					pages.add(argument + " " + this.getConfig().get("spells."+spell+".page."+argument));
 				}
-				
-				
-//				pages.add("+" + this.getConfig().getString("spells."+spell+".page") + "+");
-//				log(pages.get(0));
 				
 				continue;
 				
@@ -127,7 +120,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	@EventHandler public void onPlayerInteract(PlayerInteractEvent event) {
 		ItemStack item = event.getPlayer().getItemInHand();
 		if(!(item.getType().equals(Material.WRITTEN_BOOK))) { return; }
-//		Book book = new Book(item);
 		Scroll scroll = new Scroll(item);
 		
 		if((scroll.getAuthor() == null) || (!(scroll.getAuthor().equals("ScrollBook")))) { return; }
