@@ -1,3 +1,5 @@
+package me.nathanaelps.plugins.scrollbooks;
+
 /*
  * The SCHEMATIC class. By Nathanael (thespuff.com/nathanaelphillipsmith@gmail.com)
  * 
@@ -7,11 +9,12 @@
  * bukkit.
  * Mojang.
  * 
+ * Code snippets from Chris Smith,
+ * 
  * I pulled this in from a PHP deconstructor, so you'll see some fragments of that.
  * If you clean this up or improve it, good for you. Pass it back to me, I'd love to learn from your work.
  * 
 */
-package me.nathanaelps.plugins.scrollbooks;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,17 +33,30 @@ public class Schematic {
 	public int offsetY;
 	public int offsetZ;
 	private List<Integer> bArray = new ArrayList<Integer>();
+	// Is it possible to make a List<byte> or something like that?
 	private List<Integer> dArray = new ArrayList<Integer>();
 
+	
 	public Schematic(String fileName) throws IOException{
-		//BE AWARE OF THIS NEXT LINE!
-		String prefix = ScrollBooks.plugin.getDataFolder().getAbsolutePath()+File.separator+"schematics"+File.separator;
 		byte[] uGD;
 		try{
-			 uGD = file_get_contents(prefix+fileName+".schematic");
+			 uGD = file_get_contents(fileName);
 		} catch (IOException e) {
 			throw e;
 		}
+		
+		kludgy(uGD);
+	}
+
+	
+	public Schematic(byte[] uGD) {
+		kludgy(uGD);
+	}
+
+	private void kludgy(byte[] uGD) {
+		//I know that this is kludgy. Let's fix it!
+		//Aren't schematics kept in NBTtag format?
+		//We should use the minecraft server functions.
 		
 		this.width = uGD[indexOf(uGD,"Width")+6];
 		this.height = uGD[indexOf(uGD,"Height")+7];
@@ -67,7 +83,8 @@ public class Schematic {
 
 	public int indexOf(byte[] data, byte[] pattern) {
 		// * Knuth-Morris-Pratt Algorithm for Pattern Matching
-		// I got it from... somewhere... Online...
+		// I got it from Chris Smith at velocityreviews.com
+		// based on code from fmi.uni-sofia.bg/fmi/logic/vboutchkova/sources/KMPMatch_java.html
 		int[] failure = computeFailure(pattern);
 
 		int j = 0;
@@ -145,20 +162,19 @@ public class Schematic {
     }
 
 	public int countBlocks(){
+		//If we've already built the block array, use the size of that.
 		if(this.bArray.size()>0) { return this.bArray.size(); }
+		
+		//Otherwise, work it out from the width x height x length
 		if(this.width * this.height * this.length>0){
 			return (this.width * this.height * this.length);
 		}
+		
+		//Well, crap. Nothing else is working. Maybe the data array?
 		if(this.dArray.size()>0) { return this.dArray.size(); }
+		
+		//You, my friend, are out of luck.
 		return -1;
-	}
-
-	public void setBArray(List<Integer> in){
-		this.bArray.addAll(in);
-	}
-
-	public void setDArray(List<Integer> in){
-		this.dArray.addAll(in);
 	}
 
 	public int getWidth(){
@@ -175,8 +191,12 @@ public class Schematic {
 		return Material.getMaterial(this.bArray.get(xyzToLoc(x,y,z)));
 	}
 
+	public int getBlockId(int x, int y, int z){
+		return this.bArray.get(xyzToLoc(x,y,z));
+	}
+
 	public byte getData(int x, int y, int z){
-		return ((Integer) this.dArray.get(xyzToLoc(x,y,z))).byteValue();
+		return this.dArray.get(xyzToLoc(x,y,z)).byteValue();
 	}
 
 	private int xyzToLoc(int x, int y, int z){

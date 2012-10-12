@@ -1,4 +1,10 @@
 package me.nathanaelps.plugins.scrollbooks;
+/* The Book class.
+ * Credit for the class's creation goes to:
+ * JamesS237, for clues into the NBTTagCompound.
+ * CodenameB, aka Vlad, for general ideas.
+ * 
+ */
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,18 +16,13 @@ import org.bukkit.Material;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.inventory.ItemStack;
 
-/* The Book class.
- * Credit for the class's creation goes to:
- * JamesS237, for clues into the NBTTagCompound.
- * CodenameB, aka Vlad, for general ideas.
- */
-
 public class Book {
 
 	private String title;
 	private String author;
 	protected ArrayList<String> pages = new ArrayList<String>();
-
+	private String keyBreak = "//+";
+			
 	public Book(String title, String author, List<String> pages){
 		this.title = title;
 		this.author = author;
@@ -34,12 +35,12 @@ public class Book {
 		try {
 			this.author = tags.getString("author");
 		} catch( NullPointerException e){
-			this.author = "Herobrine";
+			this.author = "Dear Mother";
 		}
 		try {
 			this.title = tags.getString("title");
 		} catch( NullPointerException e){
-			this.title = "Necrowombicon";
+			this.title = "Hearts and Kisses";
 		}
 
 		try {
@@ -52,27 +53,47 @@ public class Book {
 		}
 	}
 		
-    public ItemStack generateItemStack(){
-        CraftItemStack newbook = new CraftItemStack(Material.WRITTEN_BOOK);
-       
-        NBTTagCompound newBookData = new NBTTagCompound();
-       
-        newBookData.setString("author",author);
-        newBookData.setString("title",title);
-
+    public ItemStack toItemStack(){
+    	/* Fun fact: Dropping the ItemStack created here results in a failed book.
+    	 * Placing it directly into a Player inventory works, though.
+    	 * Why is that?
+    	 * 
+    	 * This function is dedicated to JamesS237.
+    	 */
+        CraftItemStack craftBook = new CraftItemStack(Material.WRITTEN_BOOK);
+        NBTTagCompound tags = new NBTTagCompound();
         NBTTagList nPages = new NBTTagList();
-        for(int i = 0;i<pages.size(); i++)
-        { 
-            nPages.add(new NBTTagString(Integer.toString(i+1),pages.get(i)));
+       
+        for(int i=0; i<this.pages.size(); i++){ 
+            nPages.add(new NBTTagString(Integer.toString(i+1),this.pages.get(i)));
         }
 
-        newBookData.set("pages", nPages);
+        tags.setString("title",this.title);
+        tags.setString("author",this.author);
+        tags.set("pages", nPages);
  
-        newbook.getHandle().setTag(newBookData);
-
-        newbook.setAmount(1);
+        craftBook.getHandle().setTag(tags);
+        craftBook.setAmount(1);
                
-        return (ItemStack) newbook;
+        return (ItemStack) craftBook;
+    }
+    
+    public void applyToItemStack(ItemStack itemStackToApplyTo){
+    	itemStackToApplyTo.setType(Material.WRITTEN_BOOK);
+    	
+        NBTTagCompound tags = new NBTTagCompound();
+        NBTTagList nPages = new NBTTagList();
+       
+        for(int i=0; i<this.pages.size(); i++){ 
+            nPages.add(new NBTTagString(Integer.toString(i+1),this.pages.get(i)));
+        }
+
+        tags.setString("title",this.title);
+        tags.setString("author",this.author);
+        tags.set("pages", nPages);
+ 
+        ((CraftItemStack) itemStackToApplyTo).getHandle().setTag(tags);
+//        itemStack.setAmount(1);
     }
 
 	public String getTitle(){
@@ -108,4 +129,66 @@ public class Book {
 		if(this.pages.size()<pageNo) { this.pages.remove(pageNo); }
 		this.pages.add(pageNo, page);
 	}
+	
+	public String getKeyBreak(){
+		return this.keyBreak;
+	}
+
+	public void setKeyBreak(String keyBreak){
+		this.keyBreak = keyBreak;
+	}
+
+	public String get(String desiredKey) {
+		for(String page : this.pages) {
+			String[] lines = page.split(keyBreak);
+			for(String line : lines) {
+				String[] express = line.split(" ", 2);
+				if(express[0].equals(desiredKey)) { return express[1]; }
+			}	
+		}
+		return null;
+	}
+
+	public int getInt(String desiredKey) {
+		for(String page : this.pages) {
+			String[] lines = page.split(keyBreak);
+			for(String line : lines) {
+				String[] express = line.split(" ", 2);
+				if(express[0].equals(desiredKey)) {
+					try{ return Integer.parseInt(express[1]); }
+					catch( NumberFormatException e){ /* do nothing.*/ }
+				}
+			}	
+		}
+		return 0;
+	}
+	
+	public Float getFloat(String desiredKey) {
+		for(String page : this.pages) {
+			String[] lines = page.split(keyBreak);
+			for(String line : lines) {
+				String[] express = line.split(" ", 2);
+				if(express[0].equals(desiredKey)) {
+					try{ return Float.parseFloat(express[1]); }
+					catch( NumberFormatException e){ /* do nothing.*/ }
+				}
+			}	
+		}
+		return 0f;
+	}
+	
+	public boolean getBoolean(String desiredKey) {
+		for(String page : this.pages) {
+			String[] lines = page.split(keyBreak);
+			for(String line : lines) {
+				String[] express = line.split(" ", 2);
+				if(express[0].equals(desiredKey)) {
+					if(express[1].equals("true")) { return true; }
+					if(express[1].equals("false")) { return false; }
+				}
+			}	
+		}
+		return false;
+	}
+	
 }

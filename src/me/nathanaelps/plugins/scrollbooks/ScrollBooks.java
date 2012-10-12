@@ -111,7 +111,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
     	try{
         	Book book = new Book(title, author, pages);
         	ItemStack bookItem;
-    		bookItem = book.generateItemStack();
+    		bookItem = book.toItemStack();
     		event.getPlayer().getInventory().addItem(bookItem);
     	}
     	catch(IllegalArgumentException e){log("Still illegal."); return;}
@@ -120,7 +120,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	@EventHandler public void onPlayerInteract(PlayerInteractEvent event) {
 		ItemStack item = event.getPlayer().getItemInHand();
 		if(!(item.getType().equals(Material.WRITTEN_BOOK))) { return; }
-		Scroll scroll = new Scroll(item);
+		Book scroll = new Book(item);
 		
 		if((scroll.getAuthor() == null) || (!(scroll.getAuthor().equals("ScrollBook")))) { return; }
 		
@@ -136,6 +136,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		
 		if(title.equals("SeaLevel")) {
 			seaLevel(target, radius, scroll.getInt("volume"));
+		}
+		
+		if(title.equals("DryOut")) {
+			dry(target, radius, scroll.getInt("volume"));
 		}
 		
 		if(title.equals("Fireball")) {
@@ -166,8 +170,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	}
 
 	private void seaLevel(Location target, int radius, int volume) {
-		for(int x=(1-radius); x<radius; x++){
-			for(int y=(1-radius); y<=0; y++){
+		for(int y=(1-radius); y<=0; y++){
+			for(int x=(1-radius); x<radius; x++){
 				for(int z=(1-radius); z<radius; z++){
 					Block curBlock = target.getBlock().getRelative(x,y,z);
 					if((curBlock.getTypeId()==8) || (curBlock.getTypeId()==9)) {
@@ -179,7 +183,22 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			}
 		}
 	}
-
+	
+	private void dry(Location target, int radius, int volume) {
+		for(int y=3; y>=-2; y--){
+			for(int x=(1-radius); x<radius; x++){
+				for(int z=(1-radius); z<radius; z++){
+					Block curBlock = target.getBlock().getRelative(x,y,z);
+					if((curBlock.getTypeId()==8) || (curBlock.getTypeId()==9)) {
+						volume--;
+						curBlock.setType(Material.AIR);
+						if(volume<0) { return; }
+					}
+				}
+			}
+		}
+	}
+	
 	private void build(Location target, String name, int speed) {
 		int i=0;
 		Schematic schematic;
