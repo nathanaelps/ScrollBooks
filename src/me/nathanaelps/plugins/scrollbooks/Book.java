@@ -144,17 +144,52 @@ public class Book {
 		this.keyBreak = keyBreak;
 	}
 
+	public String get(String desiredKey, int pageNo) {
+		String page = this.pages.get(pageNo);
+		String[] lines = page.split(keyBreak);
+		for(String line : lines) {
+			String[] express = line.split("=", 2);
+			if(express[0].equals(desiredKey)) { return express[1]; }
+		}	
+		return null;
+	}
+	
 	public String get(String desiredKey) {
-		for(String page : this.pages) {
-			String[] lines = page.split(keyBreak);
-			for(String line : lines) {
-				String[] express = line.split("=", 2);
-				if(express[0].equals(desiredKey)) { return express[1]; }
-			}	
+		String out = null;
+		for(int pageNo=0; pageNo<pages.size(); pageNo++){
+			out = get(desiredKey,pageNo);
+			if(out != null) { return out; }
 		}
 		return null;
 	}
 
+	public int getInt(String desiredKey, int pageNo){
+		String out = get(desiredKey,pageNo);
+		if(out!=null){
+			try{ return Integer.parseInt(out); }
+			catch( NumberFormatException e){ /* do nothing.*/ }
+		}
+		return 0;
+	}
+	
+	public Float getFloat(String desiredKey, int pageNo){
+		String out = get(desiredKey,pageNo);
+		if(out!=null){
+			try{ return Float.parseFloat(out); }
+			catch( NumberFormatException e){ /* do nothing.*/ }
+		}
+		return 0f;
+	}
+	
+	public boolean getBoolean(String desiredKey, int pageNo){
+		String out = get(desiredKey,pageNo);
+		if(out!=null){
+			if(out.equals("true")) { return true; }
+			if(out.equals("false")) { return false; }
+		}
+		return false;
+	}
+	
 	public int getInt(String desiredKey) {
 		for(String page : this.pages) {
 			String[] lines = page.split(keyBreak);
