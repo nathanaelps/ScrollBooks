@@ -21,6 +21,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.GZIPInputStream;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -47,6 +49,13 @@ public class Schematic {
 		
 		kludgy(uGD);
 	}
+
+	public static void log(String in) {
+    	System.out.println("[.Schematic] " + in);
+    }
+    public void log(int in) {
+    	log(String.valueOf(in));
+    }
 
 	
 	public Schematic(byte[] uGD) {
@@ -143,8 +152,9 @@ public class Schematic {
         	File schematicFile = new File(fileName);
 
         	//I seem to remember that WE gzips schematic files to save them... Hm. Not my test files.
-        	//GZIPInputStream instream =new GZIPInputStream(new FileInputStream(schematicFile));
-        	FileInputStream instream = new FileInputStream(schematicFile);
+       		log(fileName);
+       		GZIPInputStream instream =new GZIPInputStream(new FileInputStream(schematicFile));
+//        	FileInputStream instream = new FileInputStream(schematicFile);
 
             byte[] buf = new byte[maxSize]; 
             int len = instream.read(buf);

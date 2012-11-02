@@ -12,8 +12,10 @@ import net.minecraft.server.NBTTagCompound;
 import net.minecraft.server.NBTTagList;
 import net.minecraft.server.NBTTagString;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
+import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 
 public class Book {
@@ -21,7 +23,7 @@ public class Book {
 	private String title;
 	private String author;
 	protected ArrayList<String> pages = new ArrayList<String>();
-	private String keyBreak = "//+";
+	private String keyBreak = "; ";
 			
 	public Book(String title, String author, List<String> pages){
 		this.title = title;
@@ -78,8 +80,13 @@ public class Book {
         return (ItemStack) craftBook;
     }
     
-    public void applyToItemStack(ItemStack itemStackToApplyTo){
-    	itemStackToApplyTo.setType(Material.WRITTEN_BOOK);
+    public void dropBook(Location location){
+		Item droppedBook = location.getWorld().dropItemNaturally(location, new ItemStack(Material.WRITTEN_BOOK));
+		applyToItemStack(droppedBook);
+    }
+    
+    public void applyToItemStack(Item itemToApplyTo){
+    	itemToApplyTo.getItemStack().setType(Material.WRITTEN_BOOK);
     	
         NBTTagCompound tags = new NBTTagCompound();
         NBTTagList nPages = new NBTTagList();
@@ -92,8 +99,7 @@ public class Book {
         tags.setString("author",this.author);
         tags.set("pages", nPages);
  
-        ((CraftItemStack) itemStackToApplyTo).getHandle().setTag(tags);
-//        itemStack.setAmount(1);
+        ((CraftItemStack) itemToApplyTo.getItemStack()).getHandle().setTag(tags);
     }
 
 	public String getTitle(){
@@ -142,7 +148,7 @@ public class Book {
 		for(String page : this.pages) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
-				String[] express = line.split(" ", 2);
+				String[] express = line.split("=", 2);
 				if(express[0].equals(desiredKey)) { return express[1]; }
 			}	
 		}
@@ -153,7 +159,7 @@ public class Book {
 		for(String page : this.pages) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
-				String[] express = line.split(" ", 2);
+				String[] express = line.split("=", 2);
 				if(express[0].equals(desiredKey)) {
 					try{ return Integer.parseInt(express[1]); }
 					catch( NumberFormatException e){ /* do nothing.*/ }
@@ -167,7 +173,7 @@ public class Book {
 		for(String page : this.pages) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
-				String[] express = line.split(" ", 2);
+				String[] express = line.split("=", 2);
 				if(express[0].equals(desiredKey)) {
 					try{ return Float.parseFloat(express[1]); }
 					catch( NumberFormatException e){ /* do nothing.*/ }
@@ -181,7 +187,7 @@ public class Book {
 		for(String page : this.pages) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
-				String[] express = line.split(" ", 2);
+				String[] express = line.split("=", 2);
 				if(express[0].equals(desiredKey)) {
 					if(express[1].equals("true")) { return true; }
 					if(express[1].equals("false")) { return false; }
@@ -189,6 +195,11 @@ public class Book {
 			}	
 		}
 		return false;
+	}
+
+	public void setKey(String key, int value) {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

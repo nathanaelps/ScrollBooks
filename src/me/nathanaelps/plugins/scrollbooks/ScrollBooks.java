@@ -1,5 +1,6 @@
 package me.nathanaelps.plugins.scrollbooks;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,20 +13,25 @@ import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
+import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.Sign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
+
+import com.thespuff.plugins.totems.Totems;
 
 public class ScrollBooks extends JavaPlugin implements Listener {
 	
@@ -33,6 +39,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	public static String pluginVersion;
 	public static Server server;
 	public static ScrollBooks plugin;
+	private static Totems totems;
 	
     public void onDisable() {
     	log("Disabled");
@@ -46,8 +53,20 @@ public class ScrollBooks extends JavaPlugin implements Listener {
     	
     	getServer().getPluginManager().registerEvents(this, this);
 
+    	setupTotems();
+
     	log("Enabled.");
     }
+    
+	private void setupTotems() {
+		ScrollBooks.totems = (Totems) server.getPluginManager().getPlugin("Totems");
+
+		if (ScrollBooks.totems == null) {
+			log("Couldn't load Totems.");
+		} else {
+			log("Hooked into Totems.");			
+		}
+	}
     
 	public static void log(String in) {
     	System.out.println("[" + pluginName + "] " + in);
@@ -58,8 +77,9 @@ public class ScrollBooks extends JavaPlugin implements Listener {
     
     @EventHandler public void onBlockBreakEvent(BlockBreakEvent event) {
     	Block block = event.getBlock();
+    	Player player = event.getPlayer();
     	if(block.getType()!=Material.SIGN_POST) { return; }
-    	if(event.getPlayer().getItemInHand().getType()!=Material.BOOK) { return; }
+    	if(player.getItemInHand().getType()!=Material.BOOK) { return; }
     	Sign sign = (Sign) block.getState();
        	if(!(sign.getLine(0).equals("magic"))) { return; }
        	
@@ -67,7 +87,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
        	try {
        		depth = Integer.parseInt(sign.getLine(2));
        	} catch(NumberFormatException e) {
-       		event.getPlayer().sendMessage("Pfft!");
+       		player.sendMessage("Pfft!");
        		block.getWorld().createExplosion(block.getLocation(), 0);
        		return;
        	}
@@ -78,8 +98,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
        		pile = pile + " " + block.getRelative(0, i+1, 0).getTypeId();
        	}
 
-//       	log(pile);
-       	
        	ConfigurationSection spellsConfig = this.getConfig().getConfigurationSection("spells");
        	Set<String> spells = spellsConfig.getKeys(false);
        	
@@ -89,14 +107,19 @@ public class ScrollBooks extends JavaPlugin implements Listener {
        	
 		for(String spell : spells) {
 			if(pile.equals(" "+spell)) {
+				if((getConfig().contains("spells."+spell+".permission")) &&
+						(!player.hasPermission("scrollbooks.makeScroll."+getConfig().getString("spells."+spell+".permission")))) {
+					return;
+				}
 				title = this.getConfig().getString("spells."+spell+".title");
 				
 				ConfigurationSection argumentConfig = this.getConfig().getConfigurationSection("spells."+spell+".page");
 				Set<String> arguments = argumentConfig.getKeys(false);
+				String page="title="+title;
 				for(String argument: arguments){
-					pages.add(argument + " " + this.getConfig().get("spells."+spell+".page."+argument));
+					page = page+"; "+argument + "=" + this.getConfig().get("spells."+spell+".page."+argument);
 				}
-				
+				pages.add(page);
 				continue;
 				
 			}
@@ -108,71 +131,161 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			block.getRelative(0, i+1, 0).setType(Material.AIR);
 		}
 		
-    	try{
-        	Book book = new Book(title, author, pages);
-        	ItemStack bookItem;
-    		bookItem = book.toItemStack();
-    		event.getPlayer().getInventory().addItem(bookItem);
-    	}
-    	catch(IllegalArgumentException e){log("Still illegal."); return;}
+		if(!player.hasPermission("scrollBooks.admin.freeSpells")){
+			if(player.getItemInHand().getAmount()==1) {
+				player.getItemInHand().setTypeId(0);
+			} else {
+				player.getItemInHand().setAmount(player.getItemInHand().getAmount()-1);
+			}
+		}
+		
+		block.setTypeId(0);
+		event.setCancelled(true);
+		
+		Book book = new Book(title, author, pages);
+		book.dropBook(block.getLocation());
     }
     
 	@EventHandler public void onPlayerInteract(PlayerInteractEvent event) {
+		if(event.getAction()!=Action.LEFT_CLICK_AIR && event.getAction()!=Action.LEFT_CLICK_BLOCK) { return; }
 		ItemStack item = event.getPlayer().getItemInHand();
 		if(!(item.getType().equals(Material.WRITTEN_BOOK))) { return; }
+		
+		event.setCancelled(true);
+		
 		Book scroll = new Book(item);
 		
-		if((scroll.getAuthor() == null) || (!(scroll.getAuthor().equals("ScrollBook")))) { return; }
+		if(     (scroll.getAuthor() == null)                          || //If the book has an author that isn't ScrollBook or op, then exit.
+				(
+						(!(scroll.getAuthor().equals("ScrollBook")))          
+//						&& (!(server.getPlayer(scroll.getAuthor()).isOp()))
+				)) { return; }
 		
 		int distance = scroll.getInt("distance");
 		int radius = scroll.getInt("radius");
+		String playerAlias = scroll.get("playerAlias");
+		if(playerAlias==null) { playerAlias = event.getPlayer().getName(); }
 		
 		String title = scroll.getTitle();
 		Location target = event.getPlayer().getTargetBlock(null, distance).getLocation();
 		
 		if(title.equals("Build")) {
-			build(target, scroll.get("schematic"), scroll.getInt("speed"));
+			build(playerAlias, target, scroll.get("schematic"), scroll.getInt("speed"));
 		}
 		
 		if(title.equals("SeaLevel")) {
-			seaLevel(target, radius, scroll.getInt("volume"));
+			seaLevel(playerAlias, target, radius, scroll.getInt("volume"));
+		}
+		
+		if(title.equals("ChangeTotemFlag")) {
+			changeTotemFlag(playerAlias, target, scroll.get("flag"), scroll.get("value"));
 		}
 		
 		if(title.equals("DryOut")) {
-			dry(target, radius, scroll.getInt("volume"));
+			dry(playerAlias, target, radius, scroll.getInt("volume"));
 		}
 		
 		if(title.equals("Fireball")) {
-			fireball(target, scroll.getFloat("power"));
+			fireball(playerAlias, target, scroll.getFloat("power"));
+		}
+		
+		if(title.equals("Spawner")) {
+			placeSpawner(playerAlias, target, scroll.get("type"));
+		}
+		
+		if(title.equals("Herbicide")) {
+			convertBlocks(playerAlias, target, radius, scroll.get("kill"), "0");
+			convertBlocks(playerAlias, target, radius, scroll.get("from"), scroll.get("to"));
 		}
 		
 		if(title.equals("Dirtball")) {
-			dirtBall(target, radius, scroll.getInt("duration")); 
+			dirtBall(playerAlias, target, radius, scroll.getInt("duration")); 
 		}
 
 		if(title.equals("Give")) {
-			give(event.getPlayer(), scroll.get("type"), scroll.getInt("quantity")); 
+			give(playerAlias, scroll.get("type"), scroll.getInt("quantity")); 
 		}
 
 		if(title.equals("Oubliette")) {
-			dig(target, scroll.getInt("depth"), radius);
+			dig(playerAlias, target, scroll.getInt("depth"), radius);
 		}
 		
 		if(title.equals("Teleport")) {
-			teleportEntities(target,radius,scroll.getInt("tpdistance"),true);
+			teleportEntities(playerAlias, target, radius, scroll.getInt("tpdistance"),true);
 		}
 
 		if(title.equals("TransformBiome")) {
-			changeBiome(target,radius,Biome.valueOf(scroll.get("biome")));
+			changeBiome(playerAlias, target, radius, Biome.valueOf(scroll.get("biome")));
 		}	
 		
-		destroy(event.getPlayer(), scroll.getInt("dieChance"));
+		destroy(event.getPlayer(), scroll);
 	}
 
-	private void seaLevel(Location target, int radius, int volume) {
+	private void convertBlocks(String playerAlias, Location target, int radius, String fromBlocks, String toBlocks) {
+		String[] oldBlocksArray = fromBlocks.split(",");
+		if(oldBlocksArray.length==0) { return; }
+		String[] newBlocksArray = toBlocks.split(",");
+		if(newBlocksArray.length==0) { return; }
+
+		List<Integer> oldBlocks = new ArrayList<Integer>();
+		for(int m=0; m<oldBlocksArray.length; m++){
+			try{
+				oldBlocks.add(Integer.parseInt(oldBlocksArray[m]));
+			}catch(NumberFormatException e){}
+		}
+		if(oldBlocks.size()==0) { return; }
+
+		List<Integer> newBlocks = new ArrayList<Integer>();
+		for(int m=0; m<newBlocksArray.length; m++){
+			try{
+				newBlocks.add(Integer.parseInt(newBlocksArray[m]));
+			}catch(NumberFormatException e){}
+		}
+		while(oldBlocks.size()>newBlocks.size()) {
+			newBlocks.add(0);
+		}
+
+		Block block = target.getBlock();
+		for(int i=0-radius; i<=radius; i++){
+			for(int j=0-radius; j<=radius; j++){
+				for(int k=0-radius; k<=radius; k++){
+					if(!canEdit(playerAlias, target.add(i,j,k), "break")) { continue; }
+					Block nearBlock = block.getRelative(i, j, k);
+					if(oldBlocks.contains(nearBlock.getTypeId())) {
+						nearBlock.setTypeId(newBlocks.get(oldBlocks.indexOf(nearBlock.getTypeId())));
+					}
+				}		
+			}					
+		}		
+	}
+
+	private boolean canEdit(String playerName, Location loc, String flag) {
+		if(totems == null) { return false; }
+		return totems.canEdit(playerName, loc, flag);
+	}
+
+	private void changeTotemFlag(String playerAlias, Location target, String flag, String value) {
+		//public boolean setTotemFlag(Location loc, Player player, String flag, String sValue) {
+		//totem will catch this on its end, if it needs to.
+		if(totems==null) {return;}
+		totems.setTotemFlag(target, server.getPlayer(playerAlias), flag, value);
+	}
+
+	private void placeSpawner(String playerAlias, Location target, String type) {
+		if(!canEdit(playerAlias, target, "place")) { return; }
+       log(type);
+		Block block = target.getWorld().getBlockAt(target); 
+		block.setTypeId(52);
+		CreatureSpawner cs = (CreatureSpawner) block.getState();
+        cs.setSpawnedType(EntityType.fromName(type.toUpperCase()));
+
+	}
+
+	private void seaLevel(String playerAlias, Location target, int radius, int volume) {
 		for(int y=(1-radius); y<=0; y++){
 			for(int x=(1-radius); x<radius; x++){
 				for(int z=(1-radius); z<radius; z++){
+					if(!canEdit(playerAlias, target.add(x, y, z), "place")) { continue; }
 					Block curBlock = target.getBlock().getRelative(x,y,z);
 					if((curBlock.getTypeId()==8) || (curBlock.getTypeId()==9)) {
 						volume--;
@@ -184,10 +297,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 	
-	private void dry(Location target, int radius, int volume) {
+	private void dry(String playerAlias, Location target, int radius, int volume) {
 		for(int y=3; y>=-2; y--){
 			for(int x=(1-radius); x<radius; x++){
 				for(int z=(1-radius); z<radius; z++){
+					if(!canEdit(playerAlias, target.add(x, y, z), "break")) { continue; }
 					Block curBlock = target.getBlock().getRelative(x,y,z);
 					if((curBlock.getTypeId()==8) || (curBlock.getTypeId()==9)) {
 						volume--;
@@ -199,15 +313,18 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 	
-	private void build(Location target, String name, int speed) {
+	private void build(String playerAlias, Location target, String name, int speed) {
+		log(name);
 		int i=0;
 		Schematic schematic;
 		try{
-			schematic = new Schematic(name);
+			String slash = File.separator;
+			schematic = new Schematic(plugin.getDataFolder()+slash+"schematics"+slash+name+".schematic");
 		} catch (IOException e) { return; }
 		for(int y=0; y<schematic.getHeight(); y++){
 			for(int x=0; x<schematic.getWidth(); x++){
 				for(int z=0; z<schematic.getLength(); z++){
+					if(!canEdit(playerAlias, target.add(x, y, z), "place")) { continue; }
 					final Material mBlock = schematic.getBlock(x, y, z);
 					final Block tBlock = target.getBlock().getRelative(x+schematic.offsetX, y+schematic.offsetY, z+schematic.offsetZ);
 					final byte dBlock = schematic.getData(x, y, z);
@@ -229,7 +346,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		block.setTypeIdAndData(mat.getId(),data,false);
 	}
 	
-	private void give(Player player, String type, int quantity) {
+	private void give(String playerAlias, String type, int quantity) {
 		Material material;
 		try{
 			//This means we can use ID or Name.
@@ -245,10 +362,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		
 		ItemStack item = new ItemStack(material, quantity);
 		
-		player.getWorld().dropItemNaturally(player.getLocation(), item);
+		server.getPlayer(playerAlias).getWorld().dropItemNaturally(server.getPlayer(playerAlias).getLocation(), item);
 	}
 
-	private void dig(Location location, int depth, int radius) {
+	private void dig(String playerAlias, Location location, int depth, int radius) {
 		Block block = location.getBlock();
 //		final HashMap<Block,Material> repairBlocks = new HashMap<Block,Material>();
 		for(int i=(0-depth); i<1; i++){
@@ -264,10 +381,12 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	}
 	
 	
-	private void changeBiome(Location location, int radius, Biome biome){
+	private void changeBiome(String playerAlias, Location location, int radius, Biome biome){
+		
 		for(int i=(1-radius); i<radius; i++){
-			for(int j=(1-radius); j<radius; j++){
-				location.getBlock().getRelative(i, 0, j).setBiome(biome);
+			for(int k=(1-radius); k<radius; k++){
+				if(!canEdit(playerAlias, location.add(i,0,k), "place")) { continue; }
+				location.getBlock().getRelative(i, 0, k).setBiome(biome);
 			}
 		}
 		
@@ -277,7 +396,9 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		location.getWorld().refreshChunk(x, z);
 	}
 	
-	private void teleportEntities(Location location, int radius, int distance, boolean stayInWorld) {
+	private void teleportEntities(String playerAlias, Location location, int radius, int distance, boolean stayInWorld) {
+		
+		if(!canEdit(playerAlias, location, "magic")) { return; }
 		
 		//Let's make a list of nearby entities and how far away they are.
 		//Vector is a handy type to use for the distance/direction they are from here.
@@ -306,12 +427,13 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 
 	}
 	
-	private void dirtBall(Location location, int radius, int ticks) {
+	private void dirtBall(String playerAlias, Location location, int radius, int ticks) {
 		Block block = location.getBlock();
 		final ArrayList<Block> airBlocks = new ArrayList<Block>();
 		for(int i=(1-radius); i<radius; i++){
 			for(int j=(1-radius); j<radius; j++){
 				for(int k=(1-radius); k<radius; k++){
+					if(!canEdit(playerAlias, location.add(i,j,k), "place")) { continue; }
 					if(Math.sqrt((i*i)+(j*j)+(k*k)) < radius){
 						Block affectedBlock = block.getRelative(j, i, k);
 						if(affectedBlock.getTypeId()==0) {
@@ -335,13 +457,20 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 
-	private void destroy(Player player, int chance) {
-		if((Math.random()*100)<chance) { player.setItemInHand(new ItemStack(Material.AIR)); }
+	private void destroy(Player player, Book scroll) {
+//		if(scroll.getInt("dieChance")>0) {
+			if((Math.random()*100)<scroll.getInt("dieChance")) { player.setItemInHand(new ItemStack(Material.AIR)); }
+//		} else if(scroll.getInt("usesRemaining")>0) {
+//			scroll.setKey("usesRemaining", scroll.getInt("usesRemaining")-1);
+//		} else {
+//			player.setItemInHand(new ItemStack(Material.AIR));
+//		}
 	}
 
-	private void fireball(Location target, float power) {
+	private void fireball(String playerAlias, Location target, float power) {
+		//totem will catch this on it's side, if it's installed.
 		target.getWorld().createExplosion(target, power, true);
-		target.getWorld().createExplosion(target, power, true);
+//		target.getWorld().createExplosion(target, power, true);
 	}
 
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args){
