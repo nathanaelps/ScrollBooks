@@ -161,6 +161,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 //						&& (!(server.getPlayer(scroll.getAuthor()).isOp()))
 				)) { return; }
 		
+		//begin page-by-page FOR loop here.
+		//for(page:pages)
+		//command = scroll.get("command");
+		
+		
 		int distance = scroll.getInt("distance");
 		int radius = scroll.getInt("radius");
 		String playerAlias = scroll.get("playerAlias");
@@ -220,13 +225,19 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			changeWeather(playerAlias, true, true);
 		}
 		
+		if(title.equals("Weatherkill")) {
+			changeWeather(playerAlias);
+		}
+		
 		if(title.equals("Teleport")) {
 			teleportEntities(playerAlias, target, radius, scroll.getInt("tpdistance"),true);
 		}
 
 		if(title.equals("TransformBiome")) {
 			changeBiome(playerAlias, target, radius, Biome.valueOf(scroll.get("biome")));
-		}	
+		}
+		
+		//}// End page-by-page for loop
 		
 		destroy(event.getPlayer(), scroll);
 	}
