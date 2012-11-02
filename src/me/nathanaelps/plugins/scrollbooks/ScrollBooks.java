@@ -169,6 +169,12 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		String title = scroll.getTitle();
 		Location target = event.getPlayer().getTargetBlock(null, distance).getLocation();
 		
+		//TODO: set up the first page to be an "Info" page,
+		//then set up each additoinal page to be a self-contained spell.
+		//Spells will be cast in page order
+		//Perhaps we could have some pages of GOTO? IDK. Make it a programmign language
+		
+		
 		if(title.equals("Build")) {
 			build(playerAlias, target, scroll.get("schematic"), scroll.getInt("speed"));
 		}
@@ -208,6 +214,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 
 		if(title.equals("Oubliette")) {
 			dig(playerAlias, target, scroll.getInt("depth"), radius);
+		}
+		
+		if(title.equals("Thunderstorm")) {
+			changeWeather(playerAlias, true, true);
 		}
 		
 		if(title.equals("Teleport")) {
@@ -259,6 +269,22 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}		
 	}
 
+	private void changeWeather(String playerAlias){
+		Player player = server.getPlayer(playerAlias);
+		if(player==null){ return; }
+		if(!canEdit(playerAlias, player.getLocation(), "magic")) { return; }
+		changeWeather(playerAlias, !player.getWorld().hasStorm(), false);
+		
+	}
+	
+	private void changeWeather(String playerAlias, boolean raining, boolean thundering){
+		Player player = server.getPlayer(playerAlias);
+		if(player==null){ return; }
+		if(!canEdit(playerAlias, player.getLocation(), "magic")) { return; }
+		player.getWorld().setStorm(raining);
+		player.getWorld().setThundering(thundering);
+	}
+	
 	private boolean canEdit(String playerName, Location loc, String flag) {
 		if(totems == null) { return false; }
 		return totems.canEdit(playerName, loc, flag);
