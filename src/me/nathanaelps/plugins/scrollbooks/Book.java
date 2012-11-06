@@ -7,7 +7,10 @@ package me.nathanaelps.plugins.scrollbooks;
  */
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+
 import net.minecraft.server.NBTTagCompound;
 import net.minecraft.server.NBTTagList;
 import net.minecraft.server.NBTTagString;
@@ -154,6 +157,27 @@ public class Book {
 		return null;
 	}
 	
+	public HashMap<String, String> getAll(int pageNo) {
+		String page = pages.get(pageNo);
+		String[] lines = page.split(keyBreak);
+		HashMap<String,String> out = new HashMap<String,String>();
+		for(String line : lines) {
+			String[] express = line.split("=", 2);
+			out.put(express[0], express[1]);
+		}
+		return out;
+	}
+
+	public void putAll(HashMap<String,String> in, int pageNo){
+		Set<String> keys = in.keySet();
+		String out = "";
+		for(String key: keys){
+			out = keyBreak+key+"="+in.get(key);
+		}
+		out.replaceFirst(keyBreak, "");
+		setPage(pageNo, out);
+	}
+	
 	public String get(String desiredKey) {
 		String out = null;
 		for(int pageNo=0; pageNo<pages.size(); pageNo++){
@@ -232,9 +256,10 @@ public class Book {
 		return false;
 	}
 
-	public void setKey(String key, int value) {
-		// TODO Auto-generated method stub
-		
+	public void setKey(String key, Object value, int pageNo) {
+		HashMap<String, String> in = getAll(pageNo);
+		in.put(key, String.valueOf(value));
+		putAll(in, pageNo);
 	}
 	
 }

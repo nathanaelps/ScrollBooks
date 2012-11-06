@@ -3,9 +3,14 @@ spells:
   1:
     title: Build
     permission: buildTree
-    page:
-      schematic: tree
-      speed: 2
+    pages:
+      info: Build a tree, wherever you click.
+      global:
+        distance: 8
+      10:
+        command: buildschematic
+        schematic: tree
+        speed: 2
   0 0 0 0 0 0 0:
     title: Give
     page:
