@@ -11,7 +11,9 @@ import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
@@ -60,7 +62,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		getServer().getPluginManager().registerEvents(this, this);
 
 		setupTotems();
-
+//		setupSpuffTeleport();
+		
 		log("Enabled.");
 	}
 
@@ -74,6 +77,16 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 
+//	private void setupSpuffTeleport() {
+//		ScrollBooks.spuffTeleport = (SpuffTeleport) server.getPluginManager().getPlugin("SpuffTeleport");
+//
+//		if (ScrollBooks.spuffTeleport == null) {
+//			log("Couldn't load spuffTeleport.");
+//		} else {
+//			log("Hooked into spuffTeleport.");			
+//		}
+//	}
+//
 	public static void log(String in) {
 		System.out.println("[" + pluginName + "] " + in);
 	}
@@ -84,7 +97,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	@EventHandler public void onBlockBreakEvent(BlockBreakEvent event) {
 		Block block = event.getBlock();
 		Player player = event.getPlayer();
-		if(block.getType()!=Material.SIGN_POST) { return; }
+//		if(block.getType()!=Material.SIGN_POST) { return; }
+		if(!(block.getState() instanceof Sign)) { return; }
 		if(player.getItemInHand().getType()!=Material.BOOK) { return; }
 		Sign sign = (Sign) block.getState();
 		if(!(sign.getLine(0).equals("magic"))) { return; }
@@ -128,7 +142,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		if(getConfig().contains("spells."+spell+".pages.info")) {
 			String page = getConfig().getString("spells."+spell+".pages.info");
 			pages.add(page);
-		}
+		}// else { log("Cannot find info page!"); }
 		
 		//process Defaults page
 		if(getConfig().contains("spells."+spell+".pages.global")) {
@@ -141,31 +155,34 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				}
 				pages.add(page);
 			}
-		}
+		}// else { log("Cannot find globals page!"); }
 		
 		//process numbered pages
-		Set<String> commandKeyStrings = getConfig().getConfigurationSection("spells."+spell+".pages").getKeys(false);
-		List<String> commandKeys = new ArrayList<String>();
-		for(String commandKey: commandKeyStrings){
-			try{
-				Integer.parseInt(commandKey);
-				commandKeys.add(commandKey);
-			}catch(NumberFormatException e){ log(commandKey); }
-		}
-		Collections.sort(commandKeys);
-		
-		if(commandKeys.size()>0) {
-			for(String commandKey: commandKeys){
-				if(!getConfig().contains("spells."+spell+".pages."+commandKey+".command")) { continue; }
-				String page = "componentNumber="+commandKey;
-				Set<String> argKeys = this.getConfig().getConfigurationSection("spells."+spell+".pages."+commandKey).getKeys(false);
-				if(argKeys.size()==0) { continue; }
-				for(String argKey: argKeys){
-					page = page+"; "+argKey + "=" + this.getConfig().get("spells."+spell+".pages."+commandKey+"."+argKey);
-				}
-				pages.add(page);
+		if(getConfig().contains("spells."+spell+".pages")){
+			Set<String> commandKeyStrings = getConfig().getConfigurationSection("spells."+spell+".pages").getKeys(false);
+			List<String> commandKeys = new ArrayList<String>();
+			for(String commandKey: commandKeyStrings){
+				try{
+					Integer.parseInt(commandKey);
+					commandKeys.add(commandKey);
+				}catch(NumberFormatException e){ }
 			}
-		}
+			Collections.sort(commandKeys);
+
+			if(commandKeys.size()>0) {
+				for(String commandKey: commandKeys){
+					if(!getConfig().contains("spells."+spell+".pages."+commandKey+".command")) { continue; }
+					String page = "componentNumber="+commandKey;
+					Set<String> argKeys = this.getConfig().getConfigurationSection("spells."+spell+".pages."+commandKey).getKeys(false);
+					if(argKeys.size()==0) { continue; }
+					for(String argKey: argKeys){
+						page = page+"; "+argKey + "=" + this.getConfig().get("spells."+spell+".pages."+commandKey+"."+argKey);
+					}
+					pages.add(page);
+				}
+			}
+		}// else { log("Cannot find pages!"); }
+
 
 		//end Pages processing
 
@@ -199,9 +216,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		event.setCancelled(true);
 
 		Book scroll = new Book(item);
+		OfflinePlayer author = server.getOfflinePlayer(scroll.getAuthor());
 
-		if(     (scroll.getAuthor() == null)                          || //If the book has an author that isn't ScrollBook, then exit.
-						(!(scroll.getAuthor().equals("ScrollBook")))          
+		if(     (scroll.getAuthor() == null)                          || //If the book has an author that isn't ScrollBook or an OP, then exit.
+						(!(server.getOperators().contains(author)) &&
+						!(author.getName().equals("ScrollBook")))         
 						) { return; }
 
 		List<Block> sightLine = event.getPlayer().getLineOfSight(null, 60);
@@ -209,22 +228,21 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		int scrollSize = scroll.pages.size();
 		HashMap<Integer,String> componentMap = new HashMap<Integer,String>();
 		
+		int globalPageNo = 0;
+		boolean hasCounter = false;
 		for(int pageNo = 0; pageNo<scrollSize; pageNo++){
 			String componentNumber = scroll.get("componentNumber", pageNo);
 			if(componentNumber==null) { continue; }
+			if(componentNumber.equalsIgnoreCase("globals")) { globalPageNo = pageNo; }
 			componentMap.put(pageNo, componentNumber);
 		}
 		//need to set up the globals page.
-		int globalPageNo = 0;
-		boolean hasCounter = false;
-		if(componentMap.containsValue("globals")) {
-			Set<Integer> pageKeys = componentMap.keySet();
-			for(Integer pageKey:pageKeys){
-				if(componentMap.get(pageKey).equalsIgnoreCase("globals")) { globalPageNo = pageKey; break; }
-			}
-			if(scroll.getInt("usesRemaining", globalPageNo)>0) { hasCounter = true; }
-		}
 		int dieChance = 0;
+		if(globalPageNo>0) {
+			if(scroll.getBoolean("requiresOp", globalPageNo) && !event.getPlayer().isOp()) { return; }
+			if(scroll.getInt("usesRemaining", globalPageNo)>0) { hasCounter = true; }
+			dieChance = scroll.getInt("dieChance", globalPageNo);
+		}
 		
 		//begin page-by-page FOR loop here.
 		for(int pageNo = 0; pageNo<scrollSize; pageNo++){
@@ -247,28 +265,31 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				target = sightLine.get(sightLine.size()-1).getLocation();
 			}
 			
+			
+			/*	IF and GOTO commands. Not sure how I want this to go.
+			 * 
+			 * 	Should we do command=if; test=playerHasPermission; permission=some.permission; true=50; false=70
+			 *		(meaning that we go to command ID 50 if player does have the permission, 70 otherwise)?
+			 * 
+			 * 			} else if(command.equalsIgnoreCase("if")) {
+			 *              if(
+							newFunc(scroll.getInt("targetPage", pageNo));
+			*/
+						
+			
 			if(command.equalsIgnoreCase("build")){
-				//build(player, target, schematicName, speed
 				build(playerAlias, target, scroll.get("schematic", pageNo), scroll.getInt("speed", pageNo));
 			} else if(command.equalsIgnoreCase("SeaLevel")) {
-				//seaLevel(player, target, radius, max volume of water to add)
 				seaLevel(playerAlias, target, radius, scroll.getInt("volume", pageNo));
-			} else if(command.equalsIgnoreCase("permissions")) {
-				//permission(player, permissionNode, value, duration that permission should last, in seconds)
+			} else if(command.equalsIgnoreCase("createHearthBook")) {
+				createHearthBook(playerAlias, scroll.getInt("uses", pageNo));
+			} else if(command.equalsIgnoreCase("teleport")) {
+				teleportTo(playerAlias, scroll.get("world", pageNo), scroll.getFloat("x", pageNo), scroll.getFloat("y", pageNo), scroll.getFloat("z", pageNo));
+			} else if(command.equalsIgnoreCase("fly")) {
+				fly(playerAlias, scroll.getFloat("speed", pageNo));
+			} else if(command.equalsIgnoreCase("permission")) {
 				permission(playerAlias, scroll.get("permission", pageNo), scroll.getBoolean("value", pageNo), scroll.getInt("duration", pageNo));
-
-/*	IF and GOTO commands. Not sure how I want this to go.
- * 
- * 	Should we do command=if; test=playerHasPermission; permission=some.permission; true=50; false=70
- *		(meaning that we go to command ID 50 if player does have the permission, 70 otherwise)?
- * 
- * 			} else if(command.equalsIgnoreCase("if")) {
- *              if(
-				newFunc(scroll.getInt("targetPage", pageNo));
-*/
-			
-			} else if(command.equalsIgnoreCase("potionEffect")) {
-				//event.getPlayer().addPotionEffect(PotionEffect)
+			} else if(command.equalsIgnoreCase("applyPotionEffect")) {
 				potionEffect(playerAlias, scroll.get("potionName", pageNo), scroll.getInt("duration", pageNo), scroll.getInt("amplifier", pageNo));
 			} else if(command.equalsIgnoreCase("castPotionEffect")) {
 				potionEffect(playerAlias, scroll.getInt("distance"), scroll.get("potionName", pageNo), scroll.getInt("duration", pageNo), scroll.getInt("amplifier", pageNo));
@@ -280,23 +301,28 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				fireball(playerAlias, target, scroll.getFloat("power", pageNo));
 			} else if(command.equalsIgnoreCase("Spawner")) {
 				placeSpawner(playerAlias, target, scroll.get("type", pageNo));
-			} else if(command.equalsIgnoreCase("Herbicide")) {
-				convertBlocks(playerAlias, target, radius, scroll.get("kill", pageNo), "0");
+			} else if(command.equalsIgnoreCase("changeNearBlocks")) {
 				convertBlocks(playerAlias, target, radius, scroll.get("from", pageNo), scroll.get("to"));
+			} else if(command.equalsIgnoreCase("expandBlocks")) {
+				expandBlocks(playerAlias, target, radius, scroll.getBoolean("vertical", pageNo), scroll.getBoolean("horizontal", pageNo), scroll.get("source"));
 			} else if(command.equalsIgnoreCase("Dirtball")) {
 				dirtBall(playerAlias, target, radius, scroll.getInt("duration", pageNo)); 
 			} else if(command.equalsIgnoreCase("Give")) {
 				give(playerAlias, scroll.get("type", pageNo), scroll.getInt("quantity", pageNo)); 
-			} else if(command.equalsIgnoreCase("Oubliette")) {
-				dig(playerAlias, target, scroll.getInt("depth", pageNo), radius);
-			} else if(command.equalsIgnoreCase("Thunderstorm")) {
-				changeWeather(playerAlias, true, true);
-			} else if(command.equalsIgnoreCase("Weatherkill")) {
+			} else if(command.equalsIgnoreCase("changeWeather")) {
 				changeWeather(playerAlias);
-			} else if(command.equalsIgnoreCase("Teleport")) {
+			} else if(command.equalsIgnoreCase("setTime")) {
+				setTime(playerAlias, scroll.getInt("timeOfDay", pageNo));
+			} else if(command.equalsIgnoreCase("setWeather")) {
+				changeWeather(playerAlias, scroll.getBoolean("isRaining", pageNo), scroll.getBoolean("isThundering", pageNo));
+			} else if(command.equalsIgnoreCase("sendmessage")) {
+				message(playerAlias, scroll.get("message"));
+			} else if(command.equalsIgnoreCase("TeleportAway")) {
 				teleportEntities(playerAlias, target, radius, scroll.getInt("tpdistance", pageNo),true);
 			} else if(command.equalsIgnoreCase("TransformBiome")) {
 				changeBiome(playerAlias, target, radius, Biome.valueOf(scroll.get("biome", pageNo)));
+			} else {
+				log("Unknown command: "+command);
 			}
 
 		}// End page-by-page for loop
@@ -306,6 +332,134 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		} else {
 			destroyChance(event.getPlayer(), dieChance);
 		}
+	}
+
+//	private void goToTelePad(String playerAlias, String destination) {
+//		if(spuffTeleport==null) { return; }
+//		
+//		spuffTeleport.teleportTo(playerAlias, destination, 0);
+//		//TODO: Need to change to spuffTeleport.teleport(Player, Destination) to allow for permissions checks, warmups, cooldowns, etc.
+//	}
+//
+//	private void setTelePadDestination(String playerAlias, Location target, String destination) {
+//		if(spuffTeleport==null) { return; }
+//		
+//		spuffTeleport.setDestination(playerAlias, target.add(0, 1, 0), destination);
+//		//TODO: Need to change to spuffTeleport.teleport(Player, Destination) to allow for permissions checks, warmups, cooldowns, etc.
+//	}
+//
+//	private void createTelePad(String playerAlias, Location target, String targetName) {
+//		if(spuffTeleport==null) { return; }
+//
+//		if(!canEdit(playerAlias, server.getPlayer(playerAlias).getLocation(), "place")) { log("no place"); return; }
+//				
+//		String serial = spuffTeleport.createTelepad(target, playerAlias, targetName);
+//		
+//		if(targetName==null) {
+//			List<String> pages = new ArrayList<String>();
+//
+//			pages.add("Link a telepad to the telepad named "+serial);
+////			pages.add("componentNumber=globals; dieChance=101");
+//			pages.add("componentNumber=10; command=settelepaddestination; distance=10; destination="+serial);
+//
+//			Book scroll = new Book("Link a Telepad", "ScrollBook", pages);
+//			scroll.dropBook(server.getPlayer(playerAlias).getLocation());
+//		}
+//
+//		//TODO: Need to change to spuffTeleport.teleport(Player, Destination) to allow for permissions checks, warmups, cooldowns, etc.
+//	}
+
+	private void expandBlocks(String playerAlias, Location target, int radius,
+			boolean doVert, boolean doHoriz, String source) {
+		
+		String[] oldBlocksArray = source.split(",");
+		if(oldBlocksArray.length==0) { return; }
+
+		List<Integer> oldBlocks = new ArrayList<Integer>();
+		for(int m=0; m<oldBlocksArray.length; m++){
+			try{
+				oldBlocks.add(Integer.parseInt(oldBlocksArray[m]));
+			}catch(NumberFormatException e){}
+		}
+		if(oldBlocks.size()==0) { return; }
+
+		int vRad = 0;
+		int hRad = 0;
+		
+		if(doVert) { vRad = radius-1; }
+		if(doHoriz) { hRad = radius-1; }
+		
+		Block block = target.getBlock();
+		for(int j=0-vRad; j<=vRad; j++){
+			for(int i=0-hRad; i<=hRad; i++){
+				for(int k=0-hRad; k<=hRad; k++){
+//					if(!canEdit(playerAlias, target.add(i,j,k), "break")) { continue; }
+					Block nearSourceBlock = block.getRelative(i, j, k);
+					if(!oldBlocks.contains(nearSourceBlock.getTypeId())) { continue; }
+					for(int jD=0-vRad; jD<=vRad; jD++){
+						for(int iD=0-hRad; iD<=hRad; iD++){
+							for(int kD=0-hRad; kD<=hRad; kD++){
+								Block nearDestBlock = nearSourceBlock.getRelative(iD, jD, kD);
+								if(nearDestBlock.getTypeId()!=0) { continue; }
+								if(!canEdit(playerAlias, target.add(iD,jD,kD), "place")) { continue; }
+								nearDestBlock.setType(nearSourceBlock.getType());
+							}
+						}
+					}
+				}		
+			}					
+		}		
+
+	}
+
+	private void createHearthBook(String playerAlias, int uses) {
+		Player player = server.getPlayer(playerAlias);
+		if(player==null) { return; }
+		
+		List<String> pages = new ArrayList<String>();
+		pages.add("Return to the location that this book was created at.");
+		pages.add("componentNumber=globals; usesRemaining="+String.valueOf(uses));
+		pages.add("componentNumber=10; command=teleport; world="+player.getWorld().getName()+"; pitch="+player.getLocation().getPitch()+"; yaw="+player.getLocation().getYaw()+"; x="+player.getLocation().getX()+"; y="+player.getLocation().getY()+"; z="+player.getLocation().getZ());
+
+		Book scroll = new Book("Hearthstone", "ScrollBook", pages);
+		scroll.dropBook(server.getPlayer(playerAlias).getLocation());
+	}
+
+	private void teleportTo(String playerAlias, String worldName, float x, float y, float z) {
+		Player player = server.getPlayer(playerAlias);
+		if(player==null) { return; }
+		teleportTo(playerAlias,worldName,x,y,z,player.getLocation().getPitch(), player.getLocation().getYaw());
+	}
+
+	private void teleportTo(String playerAlias, String worldName, float x, float y, float z, float pitch, float yaw) {
+		Player player = server.getPlayer(playerAlias);
+		if(player==null) { return; }
+		World world = server.getWorld(worldName);
+		if(world==null) { return; }
+		
+		player.teleport(new Location(world, x,y,z, yaw,pitch));
+	}
+
+	private void setTime(String playerAlias, int time) {
+		if(!canEdit(playerAlias, server.getPlayer(playerAlias).getLocation(), "magic")) { return; }
+		server.getPlayer(playerAlias).getWorld().setTime(time);
+	}
+
+	private void fly(String playerAlias, Float speed) {
+		Player player = server.getPlayer(playerAlias);
+		player.setAllowFlight(true);
+		player.setFlying(true);
+		if(speed>1) { speed = 0f; log("Speed set too high. Ignoring."); }
+		if(speed>0) {
+			server.getPlayer(playerAlias).setFlySpeed(speed);
+		} else {
+			server.getPlayer(playerAlias).setFlySpeed(.1f);
+		}
+	}
+
+	private void message(String playerAlias, String message) {
+		Player player = server.getPlayer(playerAlias);
+		player.sendMessage(message);
 	}
 
 	private void potionEffect(String playerAlias, int distance, String potionName,
@@ -395,8 +549,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 
 		Block block = target.getBlock();
-		for(int i=0-radius; i<=radius; i++){
-			for(int j=0-radius; j<=radius; j++){
+		for(int j=0-radius; j<=radius; j++){
+			for(int i=0-radius; i<=radius; i++){
 				for(int k=0-radius; k<=radius; k++){
 					if(!canEdit(playerAlias, target.add(i,j,k), "break")) { continue; }
 					Block nearBlock = block.getRelative(i, j, k);
@@ -426,7 +580,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 
 	private boolean canEdit(String playerName, Location loc, String flag) {
 		if(totems == null) { return true; }
-		return totems.canEdit(playerName, loc, flag.toUpperCase());
+		if(server.getPlayer(playerName)!=null){
+			return totems.canEdit(server.getPlayer(playerName), loc, flag.toUpperCase());			
+		} else {
+			return totems.canEdit(playerName, loc, flag.toUpperCase());
+		}
 	}
 
 	private void changeTotemFlag(String playerAlias, Location target, String flag, String value) {
@@ -466,7 +624,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		for(int y=3; y>=-2; y--){
 			for(int x=(1-radius); x<radius; x++){
 				for(int z=(1-radius); z<radius; z++){
-//					if(!canEdit(playerAlias, target.add(x, y, z), "break")) { continue; }
+					if(!canEdit(playerAlias, target.add(x, y, z), "break")) { continue; }
 					Block curBlock = target.getBlock().getRelative(x,y,z);
 					if((curBlock.getTypeId()==9) || (curBlock.getTypeId()==8)) {
 						if(curBlock.getData()==0) {
@@ -532,26 +690,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		server.getPlayer(playerAlias).getWorld().dropItemNaturally(server.getPlayer(playerAlias).getLocation(), item);
 	}
 
-	private void dig(String playerAlias, Location location, int depth, int radius) {
-		Block block = location.getBlock();
-		//		final HashMap<Block,Material> repairBlocks = new HashMap<Block,Material>();
-		for(int i=(0-depth); i<1; i++){
-			for(int j=(1-radius); j<radius; j++){
-				for(int k=(1-radius); k<radius; k++){
-					Block affectedBlock = block.getRelative(j, i, k);
-					if(affectedBlock.getType().equals(Material.GRASS)) {
-						affectedBlock.setType(Material.AIR);
-					}
-				}
-			}
-		}
-	}
-
-
 	private void changeBiome(String playerAlias, Location location, int radius, Biome biome){
 
-		for(int i=(1-radius); i<radius; i++){
-			for(int k=(1-radius); k<radius; k++){
+		for(int i=(0-radius); i<=radius; i++){
+			for(int k=(0-radius); k<=radius; k++){
 				if(!canEdit(playerAlias, location.add(i,0,k), "place")) { continue; }
 				location.getBlock().getRelative(i, 0, k).setBiome(biome);
 			}
@@ -625,11 +767,19 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	}
 	
 	private void reduceUse(Player player, Book scroll, int pageNo) {
-		scroll.setKey("usesRemaining", scroll.getInt("usesRemaining", pageNo)-1, pageNo);
+		int uses = scroll.getInt("usesRemaining", pageNo);
+		if(uses<2) {
+			destroyChance(player, 80);
+		} else {
+			scroll.setKey("usesRemaining", uses-1, pageNo);
+			player.setItemInHand(scroll.toItemStack());
+		}
 	}
 
 	private void destroyChance(Player player, int dieChance) {
-		if((Math.random()*100)<dieChance) { player.setItemInHand(new ItemStack(Material.AIR)); }
+		if((Math.random()*100)<dieChance) {
+			player.getInventory().clear(player.getInventory().getHeldItemSlot());
+		}
 	}
 
 	private void fireball(String playerAlias, Location target, float power) {

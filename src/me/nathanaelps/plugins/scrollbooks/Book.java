@@ -33,6 +33,11 @@ public class Book {
 		this.author = author;
 		this.pages.addAll(pages);
 	}
+	
+	@SuppressWarnings("unused")
+	private void log(Object in){
+		System.out.println(in);
+	}
 
 	public Book(ItemStack book){
 		NBTTagCompound tags = ((CraftItemStack) book).getHandle().tag;
@@ -62,6 +67,8 @@ public class Book {
     	/* Fun fact: Dropping the ItemStack created here results in a failed book.
     	 * Placing it directly into a Player inventory works, though.
     	 * Why is that?
+    	 * 
+    	 * use dropBook(location) to drop the book, instead.
     	 * 
     	 * This function is dedicated to JamesS237.
     	 */
@@ -135,8 +142,8 @@ public class Book {
 	}
 
 	public void setPage(int pageNo, String page){
-		if(this.pages.size()<pageNo) { this.pages.remove(pageNo); }
-		this.pages.add(pageNo, page);
+		if(pages.size()>pageNo) { pages.remove(pageNo); }
+		pages.add(pageNo, page);
 	}
 	
 	public String getKeyBreak(){
@@ -163,6 +170,7 @@ public class Book {
 		HashMap<String,String> out = new HashMap<String,String>();
 		for(String line : lines) {
 			String[] express = line.split("=", 2);
+			if(express[0].length()<1) { continue; }
 			out.put(express[0], express[1]);
 		}
 		return out;
@@ -172,10 +180,10 @@ public class Book {
 		Set<String> keys = in.keySet();
 		String out = "";
 		for(String key: keys){
-			out = keyBreak+key+"="+in.get(key);
+//			log(key+": "+in.get(key));
+			out = out+keyBreak+key+"="+in.get(key);
 		}
-		out.replaceFirst(keyBreak, "");
-		setPage(pageNo, out);
+		setPage(pageNo, out.replaceFirst(keyBreak, ""));
 	}
 	
 	public String get(String desiredKey) {
@@ -258,7 +266,9 @@ public class Book {
 
 	public void setKey(String key, Object value, int pageNo) {
 		HashMap<String, String> in = getAll(pageNo);
+//		log(in);
 		in.put(key, String.valueOf(value));
+//		log(in);
 		putAll(in, pageNo);
 	}
 	
