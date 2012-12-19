@@ -159,7 +159,7 @@ public class Book {
 		String[] lines = page.split(keyBreak);
 		for(String line : lines) {
 			String[] express = line.split("=", 2);
-			if(express[0].equals(desiredKey)) { return express[1]; }
+			if(express[0].equalsIgnoreCase(desiredKey)) { return express[1]; }
 		}	
 		return null;
 	}
@@ -227,7 +227,7 @@ public class Book {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
-				if(express[0].equals(desiredKey)) {
+				if(express[0].equalsIgnoreCase(desiredKey)) {
 					try{ return Integer.parseInt(express[1]); }
 					catch( NumberFormatException e){ /* do nothing.*/ }
 				}
@@ -241,7 +241,7 @@ public class Book {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
-				if(express[0].equals(desiredKey)) {
+				if(express[0].equalsIgnoreCase(desiredKey)) {
 					try{ return Float.parseFloat(express[1]); }
 					catch( NumberFormatException e){ /* do nothing.*/ }
 				}
@@ -256,8 +256,8 @@ public class Book {
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
 				if(express[0].equals(desiredKey)) {
-					if(express[1].equals("true")) { return true; }
-					if(express[1].equals("false")) { return false; }
+					if(express[1].equalsIgnoreCase("true")) { return true; }
+					if(express[1].equalsIgnoreCase("false")) { return false; }
 				}
 			}	
 		}

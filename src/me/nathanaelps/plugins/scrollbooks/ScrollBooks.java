@@ -1,7 +1,5 @@
 package me.nathanaelps.plugins.scrollbooks;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -236,10 +234,13 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		int globalPageNo = 0;
 		boolean hasCounter = false;
 		for(int pageNo = 0; pageNo<scrollSize; pageNo++){
-			String componentNumber = s.get("componentNumber", pageNo);
-			if(componentNumber==null) { continue; }
-			if(componentNumber.equalsIgnoreCase("globals")) { globalPageNo = pageNo; }
-			componentMap.put(pageNo, componentNumber);
+			String comNo = s.get("no", pageNo); //Component Number
+			if(comNo==null) { comNo = s.get("comNo", pageNo); }
+			if(comNo==null) { comNo = s.get("componentNumber", pageNo); }
+			if(comNo==null) { continue; }
+			if(comNo.equalsIgnoreCase("globals")) { globalPageNo = pageNo; }
+			else if(comNo.equalsIgnoreCase("global")) { globalPageNo = pageNo; }
+			componentMap.put(pageNo, comNo);
 		}
 		//need to set up the globals page.
 		int dieChance = 0;
@@ -282,8 +283,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 							newFunc(scroll.getInt("targetPage", pageNo));
 			*/
 			
-			if(command.equalsIgnoreCase("build")){
-				build(plr, target, s.get("schematic", pageNo), s.getInt("speed", pageNo));
+			if(command.equalsIgnoreCase("comment")){
+				//Do nothing.
 			} else if(command.equalsIgnoreCase("createHearthBook")) {
 				createHearthBook(plr, s.getInt("uses", pageNo));
 			} else if(command.equalsIgnoreCase("effect")) {
@@ -587,38 +588,15 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 
 	}
 
-	private void build(String playerAlias, Location target, String name, int speed) {
-		log(name);
-		int i=0;
-		Schematic schematic;
-		try{
-			String slash = File.separator;
-			schematic = new Schematic(plugin.getDataFolder()+slash+"schematics"+slash+name+".schematic");
-		} catch (IOException e) { return; }
-		for(int y=0; y<schematic.getHeight(); y++){
-			for(int x=0; x<schematic.getWidth(); x++){
-				for(int z=0; z<schematic.getLength(); z++){
-					if(!canEdit(playerAlias, target.add(x, y, z), "place")) { continue; }
-					final Material mBlock = schematic.getBlock(x, y, z);
-					final Block tBlock = target.getBlock().getRelative(x+schematic.offsetX, y+schematic.offsetY, z+schematic.offsetZ);
-					final byte dBlock = schematic.getData(x, y, z);
-					//					tBlock.setType(mBlock);
-					if((tBlock.getType() != mBlock)) {
-						i++;
-						this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-							public void run() {
-								placeBlock(tBlock, mBlock, dBlock);
-							}
-						}, (long) speed*i);
-					}
-				}
-			}
-		}
-	}
-
-	private void placeBlock(Block block, Material mat, byte data) {
-		block.setTypeIdAndData(mat.getId(),data,false);
-	}
+//						this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+//							public void run() {
+//								placeBlock(tBlock, mBlock, dBlock);
+//							}
+//						}, (long) speed*i);
+//
+//	private void placeBlock(Block block, Material mat, byte data) {
+//		block.setTypeIdAndData(mat.getId(),data,false);
+//	}
 
 	private void give(String playerAlias, String type, int quantity) {
 		Material material;
