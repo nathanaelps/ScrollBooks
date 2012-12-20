@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.Effect;
@@ -40,8 +39,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
-import org.bukkit.util.Vector;
-
 import com.thespuff.plugins.totems.Totems;
 
 public class ScrollBooks extends JavaPlugin implements Listener {
@@ -100,7 +97,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	@EventHandler public void onBlockBreakEvent(BlockBreakEvent event) {
 		Block block = event.getBlock();
 		Player player = event.getPlayer();
-//		if(block.getType()!=Material.SIGN_POST) { return; }
 		if(!(block.getState() instanceof Sign)) { return; }
 		if(player.getItemInHand().getType()!=Material.BOOK) { return; }
 		Sign sign = (Sign) block.getState();
@@ -145,7 +141,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		if(getConfig().contains("spells."+spell+".pages.info")) {
 			String page = getConfig().getString("spells."+spell+".pages.info");
 			pages.add(page);
-		}// else { log("Cannot find info page!"); }
+		}
 		
 		//process Defaults page
 		if(getConfig().contains("spells."+spell+".pages.global")) {
@@ -158,7 +154,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				}
 				pages.add(page);
 			}
-		}// else { log("Cannot find globals page!"); }
+		}
 		
 		//process numbered pages
 		if(getConfig().contains("spells."+spell+".pages")){
@@ -184,7 +180,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 					pages.add(page);
 				}
 			}
-		}// else { log("Cannot find pages!"); }
+		}
 
 
 		//end Pages processing
@@ -198,7 +194,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		if(!player.hasPermission("scrollBooks.admin.freeSpells")){
 			if(player.getItemInHand().getAmount()==1) {
 				player.getInventory().clear(player.getInventory().getHeldItemSlot());
-//				player.getItemInHand().setTypeId(0);
 			} else {
 				player.getItemInHand().setAmount(player.getItemInHand().getAmount()-1);
 			}
@@ -226,9 +221,9 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 						!(author.getName().equals("ScrollBook")))         
 						) { return; }
 
-		List<Block> sightLine = event.getPlayer().getLineOfSight(null, 60);
+		Target target = new Target(event.getPlayer());
 
-		int scrollSize = s.pages.size();
+		int scrollSize = s.size();
 		HashMap<Integer,String> componentMap = new HashMap<Integer,String>();
 		
 		int globalPageNo = 0;
@@ -257,34 +252,28 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			if(command == null) { continue; }
 
 			dieChance = (dieChance + s.getInt("dieChance", pageNo));
-			int distance = s.getInt("distance", pageNo);
+//			int distance = s.getInt("distance", pageNo);
 			int radius = s.getInt("radius", pageNo);
 			String plr = s.get("playerAlias", pageNo);
 			if(plr==null) { plr = event.getPlayer().getName(); }
 
-//			String title = scroll.getTitle();
-
-			Location target;
-
+/*			Location target;
+			Location targetAir;
+			Location targetBlock;
+			
 			if(sightLine.size()>distance) {
-				target = sightLine.get(distance).getLocation();
+				targetBlock = sightLine.get(distance).getLocation();
+				target = targetBlock;
+				targetAir = targetBlock;
 			} else {
 				target = sightLine.get(sightLine.size()-1).getLocation();
+				targetAir = sightLine.get(sightLine.size()-2).getLocation();
 			}
-			
-			
-			/*	IF and GOTO commands. Not sure how I want this to go.
-			 * 
-			 * 	Should we do command=if; test=playerHasPermission; permission=some.permission; true=50; false=70
-			 *		(meaning that we go to command ID 50 if player does have the permission, 70 otherwise)?
-			 * 
-			 * 			} else if(command.equalsIgnoreCase("if")) {
-			 *              if(
-							newFunc(scroll.getInt("targetPage", pageNo));
-			*/
-			
+*/						
 			if(command.equalsIgnoreCase("comment")){
 				//Do nothing.
+			} else if(command.equalsIgnoreCase("createFloor")) {
+				blockFill(plr, target.transparent, radius, s.getBoolean("isCeiling", pageNo), true, s.get("to", pageNo));
 			} else if(command.equalsIgnoreCase("createHearthBook")) {
 				createHearthBook(plr, s.getInt("uses", pageNo));
 			} else if(command.equalsIgnoreCase("effect")) {
@@ -293,11 +282,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 				if(effect.equalsIgnoreCase("explosion")) {
 					
 				} else if(effect.equalsIgnoreCase("potion")) {
-					potionEffect(plr, target, s.get("potion", p));
+					potionEffect(plr, target.livingEntity, s.get("potion", p));
 				} else if(effect.equalsIgnoreCase("lightning")) {
-					lightningEffect(plr, target);
+					lightningEffect(plr, target.loc);
 				} else if(effect.equalsIgnoreCase("visual")) {
-					visualEffect(plr, target, s.get("visual", p));
+					visualEffect(plr, target.transparent, s.get("visual", p));
 				}
 
 			} else if(command.equalsIgnoreCase("teleport")) {
@@ -311,15 +300,13 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			} else if(command.equalsIgnoreCase("castPotionEffect")) {
 				potionEffect(plr, s.getInt("distance"), s.get("potionName", pageNo), s.getInt("duration", pageNo), s.getInt("amplifier", pageNo));
 			} else if(command.equalsIgnoreCase("ChangeTotemFlag")) {
-				changeTotemFlag(plr, target, s.get("flag", pageNo), s.get("value", pageNo));
-			} else if(command.equalsIgnoreCase("Fireball")) {
-				fireball(plr, target, s.getFloat("power", pageNo));
+				changeTotemFlag(plr, target.solidBlock, s.get("flag", pageNo), s.get("value", pageNo));
 			} else if(command.equalsIgnoreCase("Spawner")) {
-				placeSpawner(plr, target, s.get("type", pageNo));
+				placeSpawner(plr, target.transparent, s.get("type", pageNo));
 			} else if(command.equalsIgnoreCase("changeNearBlocks")) {
-				convertBlocks(plr, target, radius, s.get("from", pageNo), s.get("to"));
+				convertBlocks(plr, target.solidBlock, radius, s.get("from", pageNo), s.get("to"));
 			} else if(command.equalsIgnoreCase("Dirtball")) {
-				dirtBall(plr, target, radius, s.getInt("duration", pageNo)); 
+				dirtBall(plr, target.loc, radius, s.getInt("duration", pageNo)); 
 			} else if(command.equalsIgnoreCase("Give")) {
 				give(plr, s.get("type", pageNo), s.getInt("quantity", pageNo)); 
 			} else if(command.equalsIgnoreCase("changeWeather")) {
@@ -331,11 +318,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			} else if(command.equalsIgnoreCase("sendmessage")) {
 				message(plr, s.get("message"));
 			} else if(command.equalsIgnoreCase("TeleportAway")) {
-				teleportEntities(plr, target, radius, s.getInt("tpdistance", pageNo),true);
+				teleportEntities(plr, target.loc, radius, s.getInt("tpdistance", pageNo));
 			} else if(command.equalsIgnoreCase("TransformBiome")) {
-				changeBiome(plr, target, radius, Biome.valueOf(s.get("biome", pageNo).toUpperCase()), (double) s.getFloat("mottle", pageNo));
+				changeBiome(plr, target.solidBlock, radius, Biome.valueOf(s.get("biome", pageNo).toUpperCase()), (double) s.getFloat("mottle", pageNo));
 			} else if(command.equalsIgnoreCase("blockFill")) {
-				blockFill(plr, target, radius, s.getBoolean("isCeiling", pageNo), s.getBoolean("isFloor", pageNo), s.get("to", pageNo));
+				blockFill(plr, target.solidBlock, radius, s.getBoolean("isCeiling", pageNo), s.getBoolean("isFloor", pageNo), s.get("to", pageNo));
 			} else {
 				log("Unknown command: "+command);
 			}
@@ -349,8 +336,8 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 	
-	private void visualEffect(String player, Location target, String effectName) {
-		if(!canEdit(player, target, "magic")) { return; }
+	private void visualEffect(String player, Block block, String effectName) {
+		if(!canEdit(player, block, "magic")) { return; }
 		Effect effect;
 		Object data; 
 		if(effectName.equalsIgnoreCase("flames")) {
@@ -368,7 +355,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		} else {
 			return;
 		}
-		final Location rT = target;
+		final Location rT = block.getLocation();
 		final Effect rE = effect;
 		final Object rD = data;
 		Runnable task = new Runnable() { public void run() {rT.getWorld().playEffect(rT, rE, rD);} };
@@ -382,10 +369,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		target.getWorld().strikeLightningEffect(target);
 	}
 		
-	private void potionEffect(String player, Location target, String potion) {
-		if(!canEdit(player, target, "magic")) { return; }
+	private void potionEffect(String player, LivingEntity livingEntity, String potion) {
+		if(!canEdit(player, livingEntity.getLocation(), "magic")) { return; }
 		
-		FallingBlock loc = target.getWorld().spawnFallingBlock(target, 36, (byte) 0);
+		FallingBlock loc = livingEntity.getWorld().spawnFallingBlock(livingEntity.getLocation(), 36, (byte) 0);
 		List<Entity> nearEntities = loc.getNearbyEntities(2, 2, 2);
 		loc.remove();
 		
@@ -404,9 +391,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		victim.addPotionEffect(effect);
 	}
 
-	private void blockFill(String playerAlias, Location target, int radius, boolean isCeiling, boolean isFloor, String changeTo){
-		Selection selection = new Selection(target.getBlock());
+	private void blockFill(String playerAlias, Block block, int radius, boolean isCeiling, boolean isFloor, String changeTo){
+		Selection selection = new Selection(block);
 		selection.contiguousCubicVolume(radius);
+		if(isCeiling) { selection.removeBelow(block.getY()); }
+		if(isFloor) { selection.removeAbove(block.getY()); }
 		
 		Material dest = Utils.getMaterial(changeTo);
 		
@@ -525,7 +514,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		//PotionEffectType.
 	}
 
-	private void convertBlocks(String playerAlias, Location target, int radius, String fromBlocks, String toBlocks) {
+	private void convertBlocks(String playerAlias, Block block, int radius, String fromBlocks, String toBlocks) {
 
 		List<Material> oldBlocks = Utils.getMaterialList(fromBlocks);
 		List<Material> newBlocks = Utils.getMaterialList(toBlocks);
@@ -534,7 +523,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			newBlocks.add(Material.AIR);
 		}
 
-		Selection selection = new Selection(target.getBlock());
+		Selection selection = new Selection(block);
 		selection.outset(radius);
 		
 		Iterator<Material> oldIt = oldBlocks.iterator();
@@ -562,6 +551,10 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		player.getWorld().setThundering(thundering);
 	}
 
+	private boolean canEdit(String playerName, Block block, String flag) {
+		return canEdit(playerName, block.getLocation(), flag);
+	}
+
 	private boolean canEdit(String playerName, Location loc, String flag) {
 		if(totems == null) { return true; }
 		if(server.getPlayer(playerName)!=null){
@@ -571,17 +564,15 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 
-	private void changeTotemFlag(String playerAlias, Location target, String flag, String value) {
+	private void changeTotemFlag(String playerAlias, Block block, String flag, String value) {
 		//public boolean setTotemFlag(Location loc, Player player, String flag, String sValue) {
 		//totem will catch this on its end, if it needs to.
 		if(totems==null) {return;}
-		totems.setTotemFlag(target, server.getPlayer(playerAlias), flag, value);
+		totems.setTotemFlag(block.getLocation(), server.getPlayer(playerAlias), flag, value);
 	}
 
-	private void placeSpawner(String playerAlias, Location target, String type) {
-		if(!canEdit(playerAlias, target, "place")) { return; }
-		log(type);
-		Block block = target.getWorld().getBlockAt(target); 
+	private void placeSpawner(String playerAlias, Block block, String type) {
+		if(!canEdit(playerAlias, block, "place")) { return; }
 		block.setTypeId(52);
 		CreatureSpawner cs = (CreatureSpawner) block.getState();
 		cs.setSpawnedType(EntityType.fromName(type.toUpperCase()));
@@ -599,18 +590,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 //	}
 
 	private void give(String playerAlias, String type, int quantity) {
-		Material material;
-		try{
-			//This means we can use ID or Name.
-			material = Material.getMaterial(Integer.parseInt(type));
-		} catch (NumberFormatException e) {
-			try{
-				material = Material.getMaterial(type.toUpperCase());
-			} catch (NullPointerException npe) {
-				log("Bad material name/ID: " + type);
-				return;
-			}
-		}
+		Material material = Utils.getMaterial(type);
 
 		ItemStack item = new ItemStack(material, quantity);
 
@@ -622,62 +602,54 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 	 * Note the mottle parameter, which permits the old biome to remain in areas.
 	 * The higher the mottle parameter is, the less the biome will be changed.
 	 * @param playerAlias Whose permissions to check.
-	 * @param location Location of center.
+	 * @param solidBlock Location of center.
 	 * @param radius Radius to change, in blocks.
 	 * @param biome Biome to change to.
 	 * @param mottle The chance (between 0 and 1) that the biome will not be changed.
 	 */
-	private void changeBiome(String playerAlias, Location location, int radius, Biome biome, double mottle){
-		Block startBlock = location.getBlock();
-		location.add(0-radius, 0, 0-radius);
+	private void changeBiome(String playerAlias, Block block, int radius, Biome biome, double mottle){
+		Location solidBlock = block.getLocation();
+		Block startBlock = solidBlock.getBlock();
+		solidBlock.add(0-radius, 0, 0-radius);
 //		log(mottle);
 		
 		for(int i=(0-radius); i<=radius; i++){
 			for(int k=(0-radius); k<=radius; k++){
 				if(Math.random()>mottle) {
-					Block newBlock = location.getBlock();
+					Block newBlock = solidBlock.getBlock();
 					if(!canEdit(playerAlias, newBlock.getLocation(), "place")) { continue; }
 					newBlock.setBiome(biome);
 				}
-				location.add(0,0,1);
+				solidBlock.add(0,0,1);
 			}
-			location.add(1,0,-1-(2*radius));
+			solidBlock.add(1,0,-1-(2*radius));
 		}
 
 		int x = startBlock.getChunk().getX();
 		int z = startBlock.getChunk().getZ();
 		startBlock.getWorld().refreshChunk(x, z);
 
-		location = startBlock.getLocation();
+		solidBlock = startBlock.getLocation();
 	}
 
-	private void teleportEntities(String playerAlias, Location location, int radius, int distance, boolean stayInWorld) {
+	private void teleportEntities(String playerAlias, Location target, int radius, int distance) {
 
-		if(!canEdit(playerAlias, location, "magic")) { return; }
+		if(!canEdit(playerAlias, target, "magic")) { return; }
 
-		//Let's make a list of nearby entities and how far away they are.
-		//Vector is a handy type to use for the distance/direction they are from here.
-		final HashMap<LivingEntity,Vector> nearEntities = new HashMap<LivingEntity,Vector>();
+		List<Entity> ents = Utils.getNearbyEntities(target, radius, radius, radius);
+		
+		int xMod = 0;
+		if(Math.random()<.5) { xMod=1; } else { xMod=-1; }
+		int zMod = 0;
+		if(Math.random()<.5) { zMod=1; } else { zMod=-1; }
+		
+		int x = xMod * (int) Math.random()*distance;
+		int z = zMod * (int) Math.sqrt((distance*distance) + (x*x));
 
-		//Now let's populate it.
-		Entity[] entities = location.getChunk().getEntities();
-		//TODO: We also need to check nearby chunks, to see if they're in the same area.
-		for(Entity entity : entities) {
-			if(entity instanceof LivingEntity){
-				if(entity.getLocation().distance(location)<radius)
-					nearEntities.put((LivingEntity) entity, location.subtract(entity.getLocation()).toVector());
-			}
-		}
-
-		int x = (int) (Math.random()*2*distance)-distance;
-		int z = (int) (Math.random()*2*distance)-distance;
-		//get topBlock at block.add(x,z)
-
-		Location destination = location.getWorld().getHighestBlockAt(location.add(x, 0, z)).getLocation();
-
-		Set<Entry<LivingEntity, Vector>> nearEntitiesSet = nearEntities.entrySet();
-		for(Entry<LivingEntity, Vector> entity : nearEntitiesSet) {
-			entity.getKey().teleport(destination.add(entity.getValue()));
+		Location destination = target.getWorld().getHighestBlockAt(target.add(x, 0, z)).getLocation();
+		
+		for(Entity ent : ents) {
+			ent.teleport(destination);
 		}
 
 	}
@@ -726,12 +698,6 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		if((Math.random()*100)<dieChance) {
 			player.getInventory().clear(player.getInventory().getHeldItemSlot());
 		}
-	}
-
-	private void fireball(String playerAlias, Location target, float power) {
-		//totem will catch this on it's side, if it's installed.
-		target.getWorld().createExplosion(target, power, true);
-		//		target.getWorld().createExplosion(target, power, true);
 	}
 
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args){

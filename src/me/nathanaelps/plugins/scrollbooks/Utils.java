@@ -2,8 +2,10 @@ package me.nathanaelps.plugins.scrollbooks;
 
 import java.util.ArrayList;
 import java.util.List;
-
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.FallingBlock;
 
 public class Utils {
 
@@ -27,6 +29,7 @@ public class Utils {
 		}
 		return out;
 	}
+	
 	public static List<Material> getMaterialList(String csvBlocks) {
 		List<Material> out = new ArrayList<Material>();
 		
@@ -37,6 +40,14 @@ public class Utils {
 			out.add(Utils.getMaterial(oldBlocksArray[m]));
 		}
 
+		return out;
+	}
+
+	public static List<Entity> getNearbyEntities(Location loc, double x, double y, double z) {
+		FallingBlock ent = loc.getWorld().spawnFallingBlock(loc, 36, (byte) 0);
+		List<Entity> out = ent.getNearbyEntities(x, y, z);
+		ent.remove();
+		
 		return out;
 	}
 

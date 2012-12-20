@@ -232,7 +232,11 @@ public class Selection{
 	}
 	
 	public void removeAbove(int altitude){
-		for(Block block : blocks){
+		Set<Block> temp = new HashSet<Block>();
+		
+		temp.addAll(blocks);
+		
+		for(Block block : temp){
 			if(block.getY()>altitude) {
 				blocks.remove(block);
 			}
