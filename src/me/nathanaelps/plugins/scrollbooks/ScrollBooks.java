@@ -94,7 +94,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		log(String.valueOf(in));
 	}
 
-	@EventHandler public void onBlockBreakEvent(BlockBreakEvent event) {
+	@EventHandler public void onMakeScroll(BlockBreakEvent event) {
 		Block block = event.getBlock();
 		Player player = event.getPlayer();
 		if(!(block.getState() instanceof Sign)) { return; }
@@ -201,12 +201,13 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 
 		block.setTypeId(0);
 		event.setCancelled(true);
-
+		
 		Book book = new Book(title, author, pages);
+		log(book.getAuthor());
 		book.dropBook(block.getLocation());
 	}
 
-	@EventHandler public void onPlayerInteract(PlayerInteractEvent event) {
+	@EventHandler public void onUseScroll(PlayerInteractEvent event) {
 		if(event.getAction()!=Action.LEFT_CLICK_AIR && event.getAction()!=Action.LEFT_CLICK_BLOCK) { return; }
 		ItemStack item = event.getPlayer().getItemInHand();
 		if(!(item.getType().equals(Material.WRITTEN_BOOK))) { return; }
@@ -214,21 +215,21 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		event.setCancelled(true);
 
 		Book s = new Book(item);
-		OfflinePlayer author = server.getOfflinePlayer(s.getAuthor());
+		String authorName = s.getAuthor();
+		if(authorName==null || authorName.length()<1) { authorName="ScrollBook"; }
+		OfflinePlayer author = server.getOfflinePlayer(authorName);
 
-		if(     (s.getAuthor() == null)                          || //If the book has an author that isn't ScrollBook or an OP, then exit.
-						(!(server.getOperators().contains(author)) &&
-						!(author.getName().equals("ScrollBook")))         
-						) { return; }
+		if(!(server.getOperators().contains(author)) &&
+				!(author.getName().equals("ScrollBook")))         
+		{ return; }
 
-		Target target = new Target(event.getPlayer());
 
 		int scrollSize = s.size();
 		HashMap<Integer,String> componentMap = new HashMap<Integer,String>();
 		
 		int globalPageNo = 0;
 		boolean hasCounter = false;
-		for(int pageNo = 0; pageNo<scrollSize; pageNo++){
+		for(int pageNo = 1; pageNo<=scrollSize; pageNo++){
 			String comNo = s.get("no", pageNo); //Component Number
 			if(comNo==null) { comNo = s.get("comNo", pageNo); }
 			if(comNo==null) { comNo = s.get("componentNumber", pageNo); }
@@ -239,60 +240,54 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 		//need to set up the globals page.
 		int dieChance = 0;
+		boolean checkEntities = false;
 		if(globalPageNo>0) {
 			if(s.getBoolean("requiresOp", globalPageNo) && !event.getPlayer().isOp()) { return; }
 			if(s.getInt("usesRemaining", globalPageNo)>0) { hasCounter = true; }
+			if(s.getBoolean("checkEntities", globalPageNo)) { checkEntities = true; }
 			dieChance = s.getInt("dieChance", globalPageNo);
 		}
 		
+		Target target = new Target(event.getPlayer(), checkEntities);
+		
 		//begin page-by-page FOR loop here.
-		for(int pageNo = 0; pageNo<scrollSize; pageNo++){
+		for(int pageNo = 1; pageNo<=scrollSize; pageNo++){
 			int p = pageNo;
 			String command = s.get("command", pageNo);
 			if(command == null) { continue; }
 
 			dieChance = (dieChance + s.getInt("dieChance", pageNo));
-//			int distance = s.getInt("distance", pageNo);
+			target.setDistance(s.getInt("distance", pageNo));
+			
 			int radius = s.getInt("radius", pageNo);
 			String plr = s.get("playerAlias", pageNo);
 			if(plr==null) { plr = event.getPlayer().getName(); }
 
-/*			Location target;
-			Location targetAir;
-			Location targetBlock;
-			
-			if(sightLine.size()>distance) {
-				targetBlock = sightLine.get(distance).getLocation();
-				target = targetBlock;
-				targetAir = targetBlock;
-			} else {
-				target = sightLine.get(sightLine.size()-1).getLocation();
-				targetAir = sightLine.get(sightLine.size()-2).getLocation();
-			}
-*/						
 			if(command.equalsIgnoreCase("comment")){
 				//Do nothing.
 			} else if(command.equalsIgnoreCase("createFloor")) {
-				blockFill(plr, target.transparent, radius, s.getBoolean("isCeiling", pageNo), true, s.get("to", pageNo));
+				blockFill(plr, target.getTransparent(), radius, s.getBoolean("isCeiling", pageNo), true, s.get("to", pageNo));
 			} else if(command.equalsIgnoreCase("createHearthBook")) {
-				createHearthBook(plr, s.getInt("uses", pageNo));
+				createHearthBook(plr, s.getInt("avgUses", pageNo));
 			} else if(command.equalsIgnoreCase("effect")) {
 				String effect = s.get("effect", pageNo);
 				
 				if(effect.equalsIgnoreCase("explosion")) {
 					
 				} else if(effect.equalsIgnoreCase("potion")) {
-					potionEffect(plr, target.livingEntity, s.get("potion", p));
+					potionEffect(plr, target.getLivingEntity(), s.get("potion", p));
 				} else if(effect.equalsIgnoreCase("lightning")) {
-					lightningEffect(plr, target.loc);
+					lightningEffect(plr, target.getLoc());
 				} else if(effect.equalsIgnoreCase("visual")) {
-					visualEffect(plr, target.transparent, s.get("visual", p));
+					visualEffect(plr, target.getTransparent(), s.get("visual", p));
 				}
 
 			} else if(command.equalsIgnoreCase("teleport")) {
 				teleportTo(plr, s.get("world", pageNo), s.getFloat("x", pageNo), s.getFloat("y", pageNo), s.getFloat("z", pageNo));
 			} else if(command.equalsIgnoreCase("fly")) {
 				fly(plr, s.getFloat("speed", pageNo));
+			} else if(command.equalsIgnoreCase("displayMessage")) {
+				longMessage(plr, s.get("message", pageNo));
 			} else if(command.equalsIgnoreCase("permission")) {
 				permission(plr, s.get("permission", pageNo), s.getBoolean("value", pageNo), s.getInt("duration", pageNo));
 			} else if(command.equalsIgnoreCase("applyPotionEffect")) {
@@ -300,13 +295,13 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			} else if(command.equalsIgnoreCase("castPotionEffect")) {
 				potionEffect(plr, s.getInt("distance"), s.get("potionName", pageNo), s.getInt("duration", pageNo), s.getInt("amplifier", pageNo));
 			} else if(command.equalsIgnoreCase("ChangeTotemFlag")) {
-				changeTotemFlag(plr, target.solidBlock, s.get("flag", pageNo), s.get("value", pageNo));
+				changeTotemFlag(plr, target.getSolidBlock(), s.get("flag", pageNo), s.get("value", pageNo));
 			} else if(command.equalsIgnoreCase("Spawner")) {
-				placeSpawner(plr, target.transparent, s.get("type", pageNo));
+				placeSpawner(plr, target.getTransparent(), s.get("type", pageNo));
 			} else if(command.equalsIgnoreCase("changeNearBlocks")) {
-				convertBlocks(plr, target.solidBlock, radius, s.get("from", pageNo), s.get("to"));
+				convertBlocks(plr, target.getSolidBlock(), radius, s.get("from", pageNo), s.get("to"));
 			} else if(command.equalsIgnoreCase("Dirtball")) {
-				dirtBall(plr, target.loc, radius, s.getInt("duration", pageNo)); 
+				dirtBall(plr, target.getLoc(), radius, s.getInt("duration", pageNo)); 
 			} else if(command.equalsIgnoreCase("Give")) {
 				give(plr, s.get("type", pageNo), s.getInt("quantity", pageNo)); 
 			} else if(command.equalsIgnoreCase("changeWeather")) {
@@ -318,11 +313,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 			} else if(command.equalsIgnoreCase("sendmessage")) {
 				message(plr, s.get("message"));
 			} else if(command.equalsIgnoreCase("TeleportAway")) {
-				teleportEntities(plr, target.loc, radius, s.getInt("tpdistance", pageNo));
+				teleportEntities(plr, target.getLoc(), radius, s.getInt("tpdistance", pageNo));
 			} else if(command.equalsIgnoreCase("TransformBiome")) {
-				changeBiome(plr, target.solidBlock, radius, Biome.valueOf(s.get("biome", pageNo).toUpperCase()), (double) s.getFloat("mottle", pageNo));
+				changeBiome(plr, target.getSolidBlock(), radius, Biome.valueOf(s.get("biome", pageNo).toUpperCase()), (double) s.getFloat("mottle", pageNo));
 			} else if(command.equalsIgnoreCase("blockFill")) {
-				blockFill(plr, target.solidBlock, radius, s.getBoolean("isCeiling", pageNo), s.getBoolean("isFloor", pageNo), s.get("to", pageNo));
+				blockFill(plr, target.getSolidBlock(), radius, s.getBoolean("isCeiling", pageNo), s.getBoolean("isFloor", pageNo), s.get("to", pageNo));
 			} else {
 				log("Unknown command: "+command);
 			}
@@ -336,6 +331,11 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		}
 	}
 	
+	private void longMessage(String playerAlias, String message) {
+		Player player = server.getPlayer(playerAlias);
+		if(player==null) { return; }
+	}
+
 	private void visualEffect(String player, Block block, String effectName) {
 		if(!canEdit(player, block, "magic")) { return; }
 		Effect effect;
@@ -408,7 +408,7 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		
 		List<String> pages = new ArrayList<String>();
 		pages.add("Return to the location that this book was created at.");
-		pages.add("componentNumber=globals; usesRemaining="+String.valueOf(uses));
+		pages.add("componentNumber=globals; dieChance="+String.valueOf(uses));
 		pages.add("componentNumber=10; command=teleport; world="+player.getWorld().getName()+"; pitch="+player.getLocation().getPitch()+"; yaw="+player.getLocation().getYaw()+"; x="+player.getLocation().getX()+"; y="+player.getLocation().getY()+"; z="+player.getLocation().getZ());
 
 		Book scroll = new Book("Hearthstone", "ScrollBook", pages);
@@ -551,16 +551,16 @@ public class ScrollBooks extends JavaPlugin implements Listener {
 		player.getWorld().setThundering(thundering);
 	}
 
-	private boolean canEdit(String playerName, Block block, String flag) {
-		return canEdit(playerName, block.getLocation(), flag);
+	private boolean canEdit(String playerName, Location location, String flag) {
+		return canEdit(playerName, location.getBlock(), flag);
 	}
 
-	private boolean canEdit(String playerName, Location loc, String flag) {
+	private boolean canEdit(String playerName, Block block, String flag) {
 		if(totems == null) { return true; }
 		if(server.getPlayer(playerName)!=null){
-			return totems.canEdit(server.getPlayer(playerName), loc, flag.toUpperCase());			
+			return totems.canEdit(server.getPlayer(playerName), block, flag.toUpperCase());			
 		} else {
-			return totems.canEdit(playerName, loc, flag.toUpperCase());
+			return totems.canEdit(playerName, block, flag.toUpperCase());
 		}
 	}
 

@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.LivingEntity;
 
 public class Utils {
 
@@ -44,9 +45,34 @@ public class Utils {
 	}
 
 	public static List<Entity> getNearbyEntities(Location loc, double x, double y, double z) {
-		FallingBlock ent = loc.getWorld().spawnFallingBlock(loc, 36, (byte) 0);
+		FallingBlock ent = loc.getWorld().spawnFallingBlock(loc, 132, (byte) 0);
 		List<Entity> out = ent.getNearbyEntities(x, y, z);
 		ent.remove();
+		
+		return out;
+	}
+	
+	public static List<Entity> getNearbyEntities(Location loc, double r) {
+		return getNearbyEntities(loc, r,r,r);
+	}
+	
+	public static List<LivingEntity> getNearbyLivingEntities(Location loc, double r) {
+		List<Entity> ents = getNearbyEntities(loc, r,r,r);
+		List<LivingEntity> out = new ArrayList<LivingEntity>();
+		
+		for(Entity ent : ents){
+			if(ent instanceof LivingEntity) { out.add((LivingEntity) ent); }
+		}
+		
+		return out;
+	}
+	
+	public static List<LivingEntity> getLivingEntities(List<Entity> ents) {
+		List<LivingEntity> out = new ArrayList<LivingEntity>();
+		
+		for(Entity ent : ents){
+			if(ent instanceof LivingEntity) { out.add((LivingEntity) ent); }
+		}
 		
 		return out;
 	}

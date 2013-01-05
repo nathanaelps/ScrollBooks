@@ -1,6 +1,4 @@
 package me.nathanaelps.plugins.scrollbooks;
-/* The Book class.
- */
 
 import java.util.HashMap;
 import java.util.List;
@@ -8,19 +6,19 @@ import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 
 public class Book {
 
-	private BookMeta book;
+	private ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+	private BookMeta meta = (BookMeta) book.getItemMeta();
 	private String keyBreak = "; ";
 			
 	public Book(String title, String author, List<String> pages){
-		book.setTitle(title);
-		book.setAuthor(author);
-		book.setPages(pages);
+		setAuthor(author);
+		setPages(pages);
+		setTitle(title);
 	}
 	
 	@SuppressWarnings("unused")
@@ -29,11 +27,11 @@ public class Book {
 	}
 
 	public Book(BookMeta book){
-		this.book = book;
+		this.book.setItemMeta(book);
 	}
 		
 	public Book(ItemStack book){
-		this.book = (BookMeta) book;
+		this.book = book;
 	}
 		
     public ItemStack toItemStack(){
@@ -41,30 +39,17 @@ public class Book {
     }
     
     public void dropBook(Location location){
-		Item droppedBook = location.getWorld().dropItemNaturally(location, new ItemStack(Material.WRITTEN_BOOK));
-		((BookMeta) droppedBook).setAuthor(book.getAuthor());
-		((BookMeta) droppedBook).setTitle(book.getTitle());
-		((BookMeta) droppedBook).setPages(book.getPages());
+		location.getWorld().dropItemNaturally(location, book);
     }
     
-/*    public void applyToItemStack(Item itemToApplyTo){
-    	ItemStack itemStack = itemToApplyTo.getItemStack();
-    	
-    	BookMeta book = (BookMeta) itemStack;
+    public String getAuthor(){ return meta.getAuthor(); }
+    public void setAuthor(String author){ meta.setAuthor(author); book.setItemMeta(meta); }
+    public String getTitle(){ return meta.getTitle(); }
+    public void setTitle(String title){ meta.setTitle(title); book.setItemMeta(meta); }
+    public List<String> getPages(){ return meta.getPages(); }
+    public void setPages(List<String> pages){ meta.setPages(pages); book.setItemMeta(meta); }
 
-    	book.setAuthor(author);
-    	book.setTitle(title);
-    	book.setPages(pages);
-    }
-*/	
-    public String getAuthor(){ return book.getAuthor(); }
-    public void setAuthor(String author){ book.setAuthor(author); }
-    public String getTitle(){ return book.getTitle(); }
-    public void setTitle(String title){ book.setTitle(title); }
-    public List<String> getPages(){ return book.getPages(); }
-    public void setPages(List<String> pages){ book.setPages(pages); }
-
-    public int size(){ return book.getPageCount(); }
+    public int size(){ return ((BookMeta) book.getItemMeta()).getPageCount(); }
 
 	public String getKeyBreak(){
 		return this.keyBreak;
@@ -75,7 +60,7 @@ public class Book {
 	}
 
 	public String get(String desiredKey, int pageNo) {
-		String page = book.getPage(pageNo);
+		String page = ((BookMeta) book.getItemMeta()).getPage(pageNo);
 		String[] lines = page.split(keyBreak);
 		for(String line : lines) {
 			String[] express = line.split("=", 2);
@@ -85,7 +70,7 @@ public class Book {
 	}
 	
 	public HashMap<String, String> getAll(int pageNo) {
-		String page = book.getPage(pageNo);
+		String page = ((BookMeta) book.getItemMeta()).getPage(pageNo);
 		String[] lines = page.split(keyBreak);
 		HashMap<String,String> out = new HashMap<String,String>();
 		for(String line : lines) {
@@ -102,12 +87,12 @@ public class Book {
 		for(String key: keys){
 			out = out+keyBreak+key+"="+in.get(key);
 		}
-		book.setPage(pageNo, out.replaceFirst(keyBreak, ""));
+		((BookMeta) book.getItemMeta()).setPage(pageNo, out.replaceFirst(keyBreak, ""));
 	}
 	
 	public String get(String desiredKey) {
 		String out = null;
-		for(int pageNo=0; pageNo<book.getPageCount(); pageNo++){
+		for(int pageNo=0; pageNo<((BookMeta) book.getItemMeta()).getPageCount(); pageNo++){
 			out = get(desiredKey,pageNo);
 			if(out != null) { return out; }
 		}
@@ -142,7 +127,7 @@ public class Book {
 	}
 	
 	public int getInt(String desiredKey) {
-		for(String page : book.getPages()) {
+		for(String page : ((BookMeta) book.getItemMeta()).getPages()) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
@@ -156,7 +141,7 @@ public class Book {
 	}
 	
 	public Float getFloat(String desiredKey) {
-		for(String page : book.getPages()) {
+		for(String page : ((BookMeta) book.getItemMeta()).getPages()) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
@@ -170,7 +155,7 @@ public class Book {
 	}
 	
 	public boolean getBoolean(String desiredKey) {
-		for(String page : book.getPages()) {
+		for(String page : ((BookMeta) book.getItemMeta()).getPages()) {
 			String[] lines = page.split(keyBreak);
 			for(String line : lines) {
 				String[] express = line.split("=", 2);
@@ -187,6 +172,32 @@ public class Book {
 		HashMap<String, String> in = getAll(pageNo);
 		in.put(key, String.valueOf(value));
 		putAll(in, pageNo);
+	}
+	
+	//-------- Methods from Implemented Class.
+
+
+	public void addPage(String... pages) {
+		meta.addPage(pages);
+		book.setItemMeta(meta);
+	}
+
+	public String getPage(int page) {
+		return meta.getPage(page);
+	}
+
+	public int getPageCount() {
+		return meta.getPageCount();
+	}
+
+	public void setPage(int page, String data) {
+		meta.setPage(page, data);
+		book.setItemMeta(meta);
+	}
+
+	public void setPages(String... pages) {
+		meta.setPages(pages);
+		book.setItemMeta(meta);
 	}
 	
 }

@@ -179,7 +179,7 @@ public class Selection{
 		Selection out = new Selection();
 		
 		for(Block block : blocks){
-			if(ScrollBooks.totems.canEdit(player, block.getLocation(), flag)){
+			if(ScrollBooks.totems.canEdit(player, block, flag)){
 				out.add(block);
 			}
 		}
